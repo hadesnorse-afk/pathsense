@@ -121,12 +121,13 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 </style>
 <!-- Vision: TensorFlow.js + COCO-SSD (pretrained on 80 everyday object types) -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tf-backend-wasm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
 </head>
 <body>
 <main class="app">
   <header class="bar">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v1.1</span></div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v1.2</span></div>
     <div class="status" id="status" data-state="loading">Loading</div>
   </header>
 
@@ -588,15 +589,22 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       return;
     }
     // Try the phone's graphics chip first; if Safari's WebGL fails or hangs, fall back to the slower CPU.
-    let lastErr = null;
-    for (const backend of ['webgl', 'cpu']) {
+    // Order: graphics chip (fastest), WebAssembly (fast, works when Safari's WebGL doesn't), plain CPU (slow, always works).
+    let lastErr = null, firstFailure = '';
+    const backends = ['webgl'];
+    if (tf.wasm && tf.wasm.setWasmPaths) {
+      try { tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/'); backends.push('wasm'); } catch (e) { /* skip wasm */ }
+    }
+    backends.push('cpu');
+    for (const backend of backends) {
       try {
         if (tf.getBackend() !== backend) {
           const ok = await tf.setBackend(backend);
           if (!ok) throw new Error(backend + ' is not available on this device');
         }
         await tf.ready();
-        if (backend === 'cpu') stage('Graphics mode failed. Retrying in slow mode…');
+        if (backend === 'wasm') stage('Graphics mode failed. Trying compatibility mode…');
+        if (backend === 'cpu') stage('Retrying in slow mode…');
         const m = await withTimeout(cocoSsd.load({ base }), 120000, 'Downloading the model');
         if (token !== loadToken) { try { m.dispose(); } catch (e) {} return; }
         stage('Preparing the model on this phone. The first time can take up to 30 seconds…');
@@ -608,12 +616,13 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 
         const old = model;
         model = m;
-        modelLabel = MODEL_LABEL[base] + (backend === 'cpu' ? ', slow mode' : '');
+        modelLabel = MODEL_LABEL[base] + (backend === 'cpu' ? ', slow mode' : backend === 'wasm' ? ', compatibility mode' : '');
         if (old) { try { old.dispose(); } catch (e) {} }
         clearInterval(loadTicker);
         const secs = Math.round((performance.now() - loadStartedAt) / 1000);
         setStatus(running ? 'live' : 'ready');
-        modelNote.textContent = 'Vision model ready in ' + secs + ' s (' + modelLabel + ', ' + tf.getBackend() + ').';
+        modelNote.textContent = 'Vision model ready in ' + secs + ' s (' + modelLabel + ', ' + tf.getBackend() + ').'
+          + (firstFailure ? ' Graphics mode failed: ' + firstFailure : '');
         if (running) {
           announce('Vision model ready. Scanning now.' + (backend === 'cpu' ? ' Running in slow mode, so alerts may lag.' : ''), { log: false });
         }
@@ -621,6 +630,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       } catch (err) {
         console.error('Model load failed on ' + backend, err);
         lastErr = err;
+        if (!firstFailure) firstFailure = String((err && err.message) || err).slice(0, 140);
         if (token !== loadToken) return;
       }
     }

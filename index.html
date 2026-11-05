@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0B0A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PathSense">
+<title>PathSense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;700;800&family=Atkinson+Hyperlegible+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen camera view. Status strip on top, camera fills the middle,
+   spoken caption and three large controls docked at the thumb end.
+   Single high-contrast dark look on purpose: low-vision users and a live camera feed. */
+:root{
+  --ink:#0B0B0A;          /* ground */
+  --panel:#16150F;        /* docked caption, controls, settings sheet */
+  --raised:#221F16;       /* secondary buttons, choices */
+  --line:#3B382B;         /* borders */
+  --paper:#F6F3E4;        /* primary text */
+  --muted:#BDB89E;        /* secondary text */
+  --signal:#FFD60A;       /* tactile-paving yellow: accent, "close" */
+  --danger:#FF5A4E;       /* "very close" */
+  --danger-bg:#3A1411;
+  --ok:#5BE38A;           /* scanning */
+  --dome:rgba(255,214,10,.10);
+  --scrim:rgba(11,11,10,.74);
+  --guide:rgba(246,243,228,.38);
+  --font-ui:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-data:"Atkinson Hyperlegible Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --gutter-l:max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r:max(16px, env(safe-area-inset-right, 0px));
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--paper);font-family:var(--font-ui);font-size:18px;line-height:1.45;overflow:hidden;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+
+.app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+/* Status strip */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:10px;padding-left:var(--gutter-l);padding-right:var(--gutter-r)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.2rem;letter-spacing:.01em}
+.mark{width:24px;height:24px;border-radius:5px;background:radial-gradient(circle,var(--ink) 1.7px,transparent 2.2px) 1px 1px/7.33px 7.33px,var(--signal)}
+.status{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-data);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;padding:6px 12px;border:1.5px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
+.status::before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}
+.status[data-state="ready"]{color:var(--paper)}
+.status[data-state="live"]{color:var(--ok);border-color:currentColor}
+.status[data-state="live"]::before{animation:pulse 1.4s ease-in-out infinite}
+.status[data-state="error"]{color:var(--danger);border-color:currentColor}
+@keyframes pulse{50%{opacity:.2}}
+
+/* Camera view; the dot grid echoes warning tactile paving */
+.view{position:relative;overflow:hidden;min-height:0;background:radial-gradient(circle,var(--dome) 2px,transparent 2.6px) 0 0/22px 22px,var(--ink)}
+.view video,.view canvas{position:absolute;inset:0;width:100%;height:100%}
+.view video{object-fit:cover}
+.meter{position:absolute;top:10px;left:max(12px, env(safe-area-inset-left, 0px));font-family:var(--font-data);font-size:.74rem;font-variant-numeric:tabular-nums;color:var(--paper);background:var(--scrim);padding:4px 8px;border-radius:6px}
+
+.intro{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;overflow:auto;padding-block:20px 18px;padding-left:var(--gutter-l);padding-right:var(--gutter-r);background:linear-gradient(to top,var(--ink) 55%,rgba(11,11,10,0))}
+.intro h1{margin:0;font-size:clamp(1.85rem,7.5vw,2.6rem);line-height:1.06;font-weight:800;letter-spacing:-.01em;text-wrap:balance;max-width:15ch}
+.steps{margin:0;padding:0;list-style:none;display:grid;gap:10px;max-width:38rem}
+.steps li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:12px;align-items:start}
+.steps li::before{content:"";width:14px;height:14px;margin-top:.32em;border-radius:50%;background:var(--signal)}
+.steps strong{font-weight:800}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-family:var(--font-data);font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:18px;height:12px;border:3px solid currentColor;border-radius:2px}
+.legend .k-very{color:var(--danger)} .legend .k-close{color:var(--signal)} .legend .k-far{color:var(--paper)}
+.legend .k-far i{border-style:dashed;border-width:2px}
+.legend b{color:var(--muted);font-weight:500}
+.warn{margin:0;padding:10px 12px;border:2px solid var(--danger);border-radius:10px;background:var(--danger-bg);font-weight:700;max-width:38rem}
+.model-note{margin:0;font-family:var(--font-data);font-size:.85rem;color:var(--muted)}
+
+/* Spoken caption */
+.caption{display:grid;gap:2px;min-height:5.4rem;align-content:center;padding-block:12px;padding-left:var(--gutter-l);padding-right:var(--gutter-r);background:var(--panel);border-top:3px solid var(--line)}
+.caption-time{font-family:var(--font-data);font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
+.caption-text{font-size:1.38rem;font-weight:800;line-height:1.22;overflow-wrap:anywhere}
+.caption[data-level="close"]{border-top-color:var(--signal)}
+.caption[data-level="urgent"]{border-top-color:var(--danger);background:var(--danger-bg)}
+
+/* Controls */
+.controls{display:grid;gap:10px;padding-block:4px 14px;padding-left:var(--gutter-l);padding-right:var(--gutter-r);background:var(--panel)}
+.controls .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:inherit;color:inherit;cursor:pointer;min-height:64px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:var(--raised);font-weight:700;font-size:1.05rem;line-height:1.2}
+button:active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible{outline:4px solid var(--signal);outline-offset:3px}
+.primary{min-height:84px;font-size:1.55rem;font-weight:800;background:var(--signal);border-color:var(--signal);color:var(--ink)}
+.primary:focus-visible{outline-color:var(--paper)}
+.primary[data-running="true"]{background:transparent;color:var(--paper);border-color:var(--paper)}
+
+/* Settings sheet */
+dialog{border:0;padding:0;margin:auto;width:min(560px,100%);max-width:100%;max-height:92%;overflow:auto;border-radius:18px;background:var(--panel);color:var(--paper)}
+dialog::backdrop{background:rgba(0,0,0,.72)}
+@media (max-width:600px){dialog{margin:auto 0 0;border-radius:18px 18px 0 0}}
+.sheet{display:grid;gap:24px;padding-block:18px calc(20px + env(safe-area-inset-bottom,0px));padding-left:var(--gutter-l);padding-right:var(--gutter-r)}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sheet-head h2{margin:0;font-size:1.6rem;font-weight:800}
+.sheet-head button{min-height:52px;padding-inline:20px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:8px;min-width:0}
+legend,.field-label{display:block;padding:0;margin-bottom:8px;font-weight:800;font-size:1.08rem}
+.field{display:grid;gap:8px}
+.field .field-label{margin-bottom:0}
+.choice{display:flex;align-items:center;gap:12px;min-height:54px;padding:8px 14px;border:2px solid var(--line);border-radius:12px;background:var(--raised);cursor:pointer}
+.choice:has(input:checked){border-color:var(--signal)}
+input[type=radio],input[type=checkbox]{width:24px;height:24px;margin:0;flex:none;accent-color:var(--signal)}
+input[type=range]{width:100%;height:36px;margin:0;accent-color:var(--signal)}
+.range-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+output{font-family:var(--font-data);font-weight:700;color:var(--signal);font-variant-numeric:tabular-nums}
+.hint{margin:0;color:var(--muted);font-size:.92rem}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-row button,.field>button{min-height:54px}
+textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78rem;background:var(--ink);color:var(--paper);border:2px solid var(--line);border-radius:10px;padding:8px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<!-- Vision: TensorFlow.js + COCO-SSD (pretrained on 80 everyday object types) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+</head>
+<body>
+<main class="app">
+  <header class="bar">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span></div>
+    <div class="status" id="status" data-state="loading">Loading</div>
+  </header>
+
+  <section class="view" id="view" aria-label="Camera">
+    <video id="video" playsinline muted autoplay aria-hidden="true"></video>
+    <canvas id="overlay" aria-hidden="true"></canvas>
+    <div class="meter" id="meter" aria-hidden="true" hidden>Starting…</div>
+
+    <div class="intro" id="intro">
+      <h1>Hear what's in your path</h1>
+      <ul class="steps">
+        <li><span>Hold the phone at <strong>chest height</strong>, back camera facing forward. A lanyard or chest strap keeps one hand free.</span></li>
+        <li><span>PathSense names obstacles and where they are: <strong>on your left, ahead, or on your right</strong>.</span></li>
+        <li><span>Keep using your cane or guide dog. PathSense adds information. It does not replace them.</span></li>
+      </ul>
+      <div class="legend" aria-hidden="true">
+        <b>Boxes for sighted helpers:</b>
+        <span class="k-very"><i></i>very close</span>
+        <span class="k-close"><i></i>close</span>
+        <span class="k-far"><i></i>further away</span>
+      </div>
+      <p class="warn" id="secureWarn" hidden>The camera only works on a secure link. Open PathSense from an https address, or from localhost on a computer.</p>
+      <p class="model-note" id="modelNote" role="status">Loading the vision model…</p>
+    </div>
+  </section>
+
+  <div class="caption" id="caption" data-level="info" role="status" aria-live="off" aria-atomic="true">
+    <span class="caption-time" id="captionTime" aria-hidden="true">Last announcement</span>
+    <span class="caption-text" id="captionText">Press Start guide to begin.</span>
+  </div>
+
+  <nav class="controls" aria-label="Guide controls">
+    <button type="button" id="startBtn" class="primary" data-running="false">Start guide</button>
+    <div class="row">
+      <button type="button" id="aroundBtn">What's around me?</button>
+      <button type="button" id="settingsBtn" aria-haspopup="dialog">Settings</button>
+    </div>
+  </nav>
+</main>
+
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <form method="dialog" id="settingsForm" class="sheet">
+    <div class="sheet-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button type="submit" value="done">Done</button>
+    </div>
+
+    <div class="field">
+      <div class="range-head"><label for="rate" class="field-label">Speech speed</label><output id="rateOut" for="rate">1.1×</output></div>
+      <input type="range" id="rate" name="rate" min="0.7" max="1.8" step="0.1">
+      <button type="button" id="testVoice">Test voice</button>
+    </div>
+
+    <fieldset>
+      <legend>What to announce</legend>
+      <label class="choice"><input type="radio" name="verbosity" id="verbClose" value="close"> Close obstacles and traffic signals</label>
+      <label class="choice"><input type="radio" name="verbosity" id="verbAll" value="all"> Everything the camera sees</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Directions</legend>
+      <label class="choice"><input type="radio" name="direction" id="dirSides" value="sides"> Left, ahead, right</label>
+      <label class="choice"><input type="radio" name="direction" id="dirClock" value="clock"> Clock face, 10 to 2 o'clock</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Speak through</legend>
+      <label class="choice"><input type="radio" name="output" id="outVoice" value="voice"> PathSense voice</label>
+      <label class="choice"><input type="radio" name="output" id="outReader" value="reader"> My screen reader (TalkBack or VoiceOver)</label>
+    </fieldset>
+
+    <div class="field">
+      <div class="range-head"><label for="minScore" class="field-label">Detection confidence</label><output id="scoreOut" for="minScore">50%</output></div>
+      <input type="range" id="minScore" name="minScore" min="0.35" max="0.8" step="0.05">
+      <p class="hint">Lower finds more objects but makes more mistakes.</p>
+    </div>
+
+    <fieldset>
+      <legend>Vision model</legend>
+      <label class="choice"><input type="radio" name="model" id="modelFast" value="lite_mobilenet_v2"> Fast, for most phones</label>
+      <label class="choice"><input type="radio" name="model" id="modelAcc" value="mobilenet_v2"> Accurate, slower</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Extras</legend>
+      <label class="choice"><input type="checkbox" name="vibrate" id="vibrate"> Vibrate on alerts (Android)</label>
+      <label class="choice"><input type="checkbox" name="pathClear" id="pathClear"> Say "Path clear" when obstacles pass</label>
+    </fieldset>
+
+    <div class="field">
+      <span class="field-label">Test session log</span>
+      <p class="hint" id="logCount">No announcements yet.</p>
+      <div class="btn-row">
+        <button type="button" id="copyLog">Copy as CSV</button>
+        <button type="button" id="clearLog">Clear log</button>
+      </div>
+      <p class="hint" id="logStatus" role="status"></p>
+      <textarea id="logArea" aria-label="Session log as CSV" readonly hidden></textarea>
+    </div>
+
+    <button type="submit" value="done">Done</button>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Tunables: adjust these after walking your campus ----------
+  const DETECT_LONG_SIDE = 480;          // camera frame is shrunk to this many pixels before detection
+  const LOOP_GAP_MS = 60;                // pause between detections; raise it if the phone gets hot
+  const CLOSE_AT = 0.36;                 // object size (share of the frame) that counts as "close"
+  const VERY_CLOSE_AT = 0.62;            // object size that counts as "very close"
+  const REPEAT_MS = [12000, 7000, 4000]; // earliest repeat of the same object on the same side: far, close, very close
+  const FORGET_MS = 2500;                // unseen this long, an object is announced again when it comes back
+  const CLEAR_AFTER_MS = 4000;           // quiet time before "Path clear"
+  const URGENT_HOLD_MS = 1800;           // an urgent alert is not cut off by another one for this long
+
+  // kind: moving | static | signal | minor. Classes not listed are "minor" and use their COCO name.
+  const CLASSES = {
+    'person':        { say: 'person',        plural: 'people',         kind: 'moving' },
+    'bicycle':       { say: 'bicycle',       plural: 'bicycles',       kind: 'moving' },
+    'motorcycle':    { say: 'two-wheeler',   plural: 'two-wheelers',   kind: 'moving' },
+    'car':           { say: 'car',           plural: 'cars',           kind: 'moving' },
+    'bus':           { say: 'bus',           plural: 'buses',          kind: 'moving' },
+    'truck':         { say: 'truck',         plural: 'trucks',         kind: 'moving' },
+    'dog':           { say: 'dog',           plural: 'dogs',           kind: 'moving' },
+    'cow':           { say: 'cow',           plural: 'cows',           kind: 'moving' },
+    'horse':         { say: 'horse',         plural: 'horses',         kind: 'moving' },
+    'bench':         { say: 'bench',         plural: 'benches',        kind: 'static' },
+    'chair':         { say: 'chair',         plural: 'chairs',         kind: 'static' },
+    'potted plant':  { say: 'plant pot',     plural: 'plant pots',     kind: 'static' },
+    'fire hydrant':  { say: 'fire hydrant',  plural: 'fire hydrants',  kind: 'static' },
+    'parking meter': { say: 'parking meter', plural: 'parking meters', kind: 'static' },
+    'dining table':  { say: 'table',         plural: 'tables',         kind: 'static' },
+    'couch':         { say: 'sofa',          plural: 'sofas',          kind: 'static' },
+    'suitcase':      { say: 'suitcase',      plural: 'suitcases',      kind: 'static' },
+    'traffic light': { say: 'traffic light', plural: 'traffic lights', kind: 'signal' },
+    'stop sign':     { say: 'stop sign',     plural: 'stop signs',     kind: 'signal' }
+  };
+  const MODEL_LABEL = { lite_mobilenet_v2: 'fast model', mobilenet_v2: 'accurate model' };
+  const LEVEL_WORD = ['', 'close', 'very close'];
+
+  // ---------- Settings ----------
+  const DEFAULTS = { rate: 1.1, verbosity: 'close', direction: 'sides', output: 'voice', minScore: 0.5, model: 'lite_mobilenet_v2', vibrate: true, pathClear: true };
+  const STORE_KEY = 'pathsense.settings.v1';
+  const settings = loadSettings();
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      const s = Object.assign({}, DEFAULTS, raw ? JSON.parse(raw) : {});
+      if (!MODEL_LABEL[s.model]) s.model = DEFAULTS.model;
+      return s;
+    } catch (e) { return Object.assign({}, DEFAULTS); }
+  }
+  function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) { /* storage blocked */ } }
+
+  // ---------- Elements ----------
+  const $ = (id) => document.getElementById(id);
+  const view = $('view'), video = $('video'), overlay = $('overlay'), octx = overlay.getContext('2d');
+  const statusEl = $('status'), meter = $('meter'), intro = $('intro'), modelNote = $('modelNote');
+  const caption = $('caption'), captionText = $('captionText'), captionTime = $('captionTime');
+  const startBtn = $('startBtn'), aroundBtn = $('aroundBtn'), settingsBtn = $('settingsBtn');
+  const dlg = $('settings'), form = $('settingsForm');
+  const work = document.createElement('canvas'), wctx = work.getContext('2d');
+
+  const css = getComputedStyle(document.documentElement);
+  const C = {};
+  ['ink', 'paper', 'signal', 'danger', 'guide'].forEach((k) => { C[k] = css.getPropertyValue('--' + k).trim(); });
+  const CANVAS_FONT = '"Atkinson Hyperlegible Mono", ui-monospace, Menlo, monospace';
+
+  // ---------- State ----------
+  let model = null, modelLabel = MODEL_LABEL[settings.model], loadToken = 0;
+  let stream = null, running = false, starting = false, loopTimer = 0, wakeLock = null;
+  const recent = [];             // item maps from the last 3 frames, for smoothing
+  const spoken = new Map();      // key -> { t, level, seen }
+  let lastStable = [], lastItems = new Map();
+  let lastObstacleAt = 0, hadAlert = false, saidClear = true, urgentUntil = 0;
+  let emaMs = 0, emaGap = 0, lastFrameAt = 0;
+  const sessionLog = [];
+
+  // ---------- Speech ----------
+  const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
+  let voice = null, speakStartedAt = 0, lastAnnouncedAt = 0;
+  function pickVoice() {
+    if (!synth) return;
+    const voices = synth.getVoices();
+    if (!voices.length) return;
+    const norm = (l) => String(l || '').replace('_', '-').toLowerCase();
+    const want = norm(navigator.language || 'en-US');
+    const base = want.split('-')[0];
+    voice = voices.find((v) => norm(v.lang) === want && v.localService)
+         || voices.find((v) => norm(v.lang) === want)
+         || voices.find((v) => norm(v.lang).startsWith(base))
+         || null;
+  }
+  if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; }
+
+  function isBusy() {
+    const now = performance.now();
+    if (settings.output === 'reader' || !synth) return now - lastAnnouncedAt < 2500;
+    if (synth.speaking || synth.pending) {
+      if (now - speakStartedAt > 9000) { synth.cancel(); return false; } // recover from a stuck speech engine
+      return true;
+    }
+    return false;
+  }
+
+  function announce(text, opts) {
+    const o = Object.assign({ level: 0, urgent: false, log: true }, opts);
+    const now = performance.now();
+    lastAnnouncedAt = now;
+    showCaption(text, o.level);
+    if (o.log) logEntry(text, o.level);
+    if (settings.output === 'reader' || !synth) return; // the caption is an assertive live region in this mode
+    if (o.urgent) synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = settings.rate;
+    if (voice) { u.voice = voice; u.lang = voice.lang; } else { u.lang = navigator.language || 'en-US'; }
+    speakStartedAt = now;
+    synth.speak(u);
+  }
+
+  function showCaption(text, level) {
+    caption.dataset.level = level === 2 ? 'urgent' : level === 1 ? 'close' : 'info';
+    captionTime.textContent = 'Said at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    captionText.textContent = '';
+    setTimeout(() => { captionText.textContent = text; }, 30); // re-set so screen readers repeat identical alerts
+  }
+
+  function applyOutput() {
+    caption.setAttribute('aria-live', (settings.output === 'reader' || !synth) ? 'assertive' : 'off');
+  }
+
+  function buzz(pattern) {
+    if (!pattern || !settings.vibrate || !navigator.vibrate) return;
+    try { navigator.vibrate(pattern); } catch (e) { /* not supported */ }
+  }
+
+  // ---------- Reading the scene ----------
+  function sizeOf(b) { return Math.max(b.h, Math.sqrt(b.w * b.h)); }
+  function levelOf(b) {
+    const s = sizeOf(b);
+    if (s >= VERY_CLOSE_AT || (b.y + b.h > 0.95 && b.h > 0.45)) return 2;
+    if (s >= CLOSE_AT) return 1;
+    return 0;
+  }
+  function zoneOf(cx) { return cx < 1 / 3 ? 'left' : cx > 2 / 3 ? 'right' : 'ahead'; }
+
+  function analyse(preds, W, H) {
+    const items = new Map(), boxes = [];
+    for (const p of preds) {
+      const [x, y, w, h] = p.bbox;
+      const b = { x: x / W, y: y / H, w: w / W, h: h / H };
+      const info = CLASSES[p.class] || { say: p.class, plural: p.class + 's', kind: 'minor' };
+      const cx = b.x + b.w / 2, zone = zoneOf(cx), level = levelOf(b), size = sizeOf(b);
+      const key = p.class + '|' + zone;
+      const cur = items.get(key);
+      if (cur) {
+        cur.count += 1;
+        if (size > cur.size) { cur.size = size; cur.cx = cx; }
+        if (level > cur.level) cur.level = level;
+      } else {
+        items.set(key, { key, cls: p.class, info, zone, level, size, cx, count: 1 });
+      }
+      boxes.push({ b, say: info.say, level });
+    }
+    return { items, boxes };
+  }
+
+  function eligible(it) {
+    if (settings.verbosity === 'all') return true;
+    if (it.info.kind === 'signal') return true;
+    if (it.info.kind === 'minor') return it.level === 2 && it.zone === 'ahead';
+    return it.level >= 1;
+  }
+  function priority(it) {
+    return it.level * 10 + (it.zone === 'ahead' ? 3 : 0) + (it.info.kind === 'moving' ? 2 : 0) + (it.info.kind === 'signal' ? 1 : 0);
+  }
+
+  function dirPhrase(it) {
+    if (settings.direction === 'clock') {
+      const hour = [10, 11, 12, 1, 2][Math.min(4, Math.max(0, Math.floor(it.cx * 5)))];
+      return 'at ' + hour + " o'clock";
+    }
+    return it.zone === 'left' ? 'on your left' : it.zone === 'right' ? 'on your right' : 'ahead';
+  }
+  function nounPhrase(it) { return it.count > 1 ? it.count + ' ' + it.info.plural : it.info.say; }
+  function alertText(it) {
+    const parts = [nounPhrase(it)];
+    if (it.level > 0) parts.push(LEVEL_WORD[it.level]);
+    parts.push(dirPhrase(it));
+    let t = parts.join(', ');
+    t = t.charAt(0).toUpperCase() + t.slice(1) + '.';
+    if (it.level === 2) t = (it.zone === 'ahead' ? 'Stop. ' : 'Careful. ') + t;
+    return t;
+  }
+  function summaryText(list) {
+    if (!list.length) return 'Nothing detected right now. Keep using your cane.';
+    const label = { left: 'On your left', ahead: 'Ahead', right: 'On your right' };
+    const out = [];
+    for (const z of ['left', 'ahead', 'right']) {
+      const inZone = list.filter((i) => i.zone === z).sort((a, b) => b.level - a.level);
+      if (!inZone.length) continue;
+      const bits = inZone.map((i) => nounPhrase(i) + (i.level === 2 ? ', very close' : i.level === 1 ? ', close' : ', further away'));
+      out.push(label[z] + ': ' + bits.join('; ') + '.');
+    }
+    return out.join(' ');
+  }
+
+  // Decide what, if anything, to say for this frame.
+  function decide(items) {
+    const now = performance.now();
+    const prevFrames = recent.slice(-2);
+    recent.push(items);
+    if (recent.length > 3) recent.shift();
+
+    // Stable = seen in this frame and in at least one of the two before it (filters one-frame flickers).
+    const stable = [];
+    for (const it of items.values()) if (prevFrames.some((m) => m.has(it.key))) stable.push(it);
+    lastStable = stable;
+    lastItems = items;
+
+    const stableKeys = new Set(stable.map((i) => i.key));
+    for (const [k, rec] of spoken) {
+      if (stableKeys.has(k)) rec.seen = now;
+      else if (now - rec.seen > FORGET_MS) spoken.delete(k);
+    }
+
+    const relevant = stable.filter(eligible);
+    if (relevant.length) lastObstacleAt = now;
+
+    const due = relevant
+      .filter((it) => { const r = spoken.get(it.key); return !r || it.level > r.level || now - r.t > REPEAT_MS[it.level]; })
+      .sort((a, b) => priority(b) - priority(a));
+    const top = due[0];
+
+    if (top) {
+      const urgent = top.level === 2 && top.zone === 'ahead';
+      const canInterrupt = urgent && now > urgentUntil;
+      if (canInterrupt || !isBusy()) {
+        announce(alertText(top), { level: top.level, urgent: canInterrupt });
+        buzz(top.level === 2 ? [250, 90, 250, 90, 250] : top.level === 1 ? [120] : 0);
+        spoken.set(top.key, { t: now, level: top.level, seen: now });
+        if (urgent) urgentUntil = now + URGENT_HOLD_MS;
+        hadAlert = true; saidClear = false;
+      }
+    } else if (settings.pathClear && hadAlert && !saidClear && now - lastObstacleAt > CLEAR_AFTER_MS && !isBusy()) {
+      announce('Path clear.', { level: 0 });
+      saidClear = true;
+    }
+  }
+
+  // ---------- Drawing (for sighted helpers and demos) ----------
+  function sizeOverlay() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(view.clientWidth * dpr), h = Math.round(view.clientHeight * dpr);
+    if (overlay.width !== w || overlay.height !== h) { overlay.width = w; overlay.height = h; }
+  }
+  function clearOverlay() { octx.clearRect(0, 0, overlay.width, overlay.height); }
+  function draw(boxes, vw, vh) {
+    const W = overlay.width, H = overlay.height, dpr = window.devicePixelRatio || 1;
+    octx.clearRect(0, 0, W, H);
+    // The video is shown with object-fit: cover, so map frame coordinates the same way.
+    const s = Math.max(W / vw, H / vh), ox = (W - vw * s) / 2, oy = (H - vh * s) / 2;
+
+    octx.save();
+    octx.strokeStyle = C.guide; octx.lineWidth = 1.5 * dpr; octx.setLineDash([6 * dpr, 8 * dpr]);
+    for (const f of [1 / 3, 2 / 3]) {
+      const x = ox + f * vw * s;
+      octx.beginPath(); octx.moveTo(x, 0); octx.lineTo(x, H); octx.stroke();
+    }
+    octx.restore();
+
+    const fs = 14 * dpr, pad = 5 * dpr;
+    octx.font = '700 ' + fs + 'px ' + CANVAS_FONT;
+    octx.textBaseline = 'top';
+    for (const bx of boxes) {
+      const x = ox + bx.b.x * vw * s, y = oy + bx.b.y * vh * s, w = bx.b.w * vw * s, h = bx.b.h * vh * s;
+      const col = bx.level === 2 ? C.danger : bx.level === 1 ? C.signal : C.paper;
+      octx.lineWidth = (bx.level ? 4 : 2) * dpr;
+      octx.strokeStyle = col;
+      octx.setLineDash(bx.level ? [] : [5 * dpr, 5 * dpr]);
+      octx.strokeRect(x, y, w, h);
+      octx.setLineDash([]);
+      const label = bx.say + ' · ' + (bx.level === 2 ? 'very close' : bx.level === 1 ? 'close' : 'far');
+      const tw = octx.measureText(label).width, lh = fs + pad * 2;
+      const lx = Math.max(0, Math.min(x, W - tw - pad * 2)), ly = Math.max(0, y - lh);
+      octx.fillStyle = col; octx.fillRect(lx, ly, tw + pad * 2, lh);
+      octx.fillStyle = C.ink; octx.fillText(label, lx + pad, ly + pad);
+    }
+  }
+  function updateMeter(ms) {
+    const now = performance.now();
+    if (lastFrameAt) { const gap = now - lastFrameAt; emaGap = emaGap ? emaGap * 0.8 + gap * 0.2 : gap; }
+    lastFrameAt = now;
+    emaMs = emaMs ? emaMs * 0.8 + ms * 0.2 : ms;
+    const fps = emaGap ? (1000 / emaGap).toFixed(1) : '–';
+    meter.textContent = fps + ' fps · ' + Math.round(emaMs) + ' ms · ' + modelLabel;
+  }
+
+  // ---------- Detection loop ----------
+  async function loop() {
+    if (!running) return;
+    try {
+      if (model && video.readyState >= 2 && video.videoWidth) {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const sc = Math.min(1, DETECT_LONG_SIDE / Math.max(vw, vh));
+        const w = Math.round(vw * sc), h = Math.round(vh * sc);
+        if (work.width !== w || work.height !== h) { work.width = w; work.height = h; }
+        wctx.drawImage(video, 0, 0, w, h);
+        const t0 = performance.now();
+        const preds = await model.detect(work, 20, settings.minScore);
+        const ms = performance.now() - t0;
+        if (!running) return;
+        const frame = analyse(preds, w, h);
+        decide(frame.items);
+        draw(frame.boxes, vw, vh);
+        updateMeter(ms);
+      }
+    } catch (err) {
+      console.error('Detection error', err);
+    }
+    if (running) loopTimer = setTimeout(loop, LOOP_GAP_MS);
+  }
+
+  // ---------- Model ----------
+  async function loadModel(base) {
+    const token = ++loadToken;
+    setStatus('loading');
+    modelNote.textContent = 'Loading the vision model…';
+    if (typeof tf === 'undefined' || typeof cocoSsd === 'undefined') {
+      setStatus('error');
+      modelNote.textContent = 'The vision library did not load. Check the internet connection and reload the page.';
+      return;
+    }
+    try {
+      await tf.ready();
+      const m = await cocoSsd.load({ base });
+      const warm = document.createElement('canvas');
+      warm.width = warm.height = 96;
+      warm.getContext('2d').fillRect(0, 0, 96, 96);
+      await m.detect(warm); // first run compiles GPU shaders; do it before the user starts walking
+      if (token !== loadToken) { try { m.dispose(); } catch (e) {} return; }
+      const old = model;
+      model = m;
+      modelLabel = MODEL_LABEL[base];
+      if (old) { try { old.dispose(); } catch (e) {} }
+      setStatus(running ? 'live' : 'ready');
+      modelNote.textContent = 'Vision model ready (' + modelLabel + ', ' + tf.getBackend() + ').';
+    } catch (err) {
+      console.error(err);
+      if (token !== loadToken) return;
+      setStatus('error');
+      modelNote.textContent = 'The vision model could not load. Check the internet connection and reload the page.';
+    }
+  }
+
+  function setStatus(state) {
+    const label = { loading: 'Loading', ready: 'Ready', live: 'Scanning', error: 'Needs attention' }[state];
+    statusEl.dataset.state = state;
+    statusEl.textContent = label;
+  }
+
+  // ---------- Start / stop ----------
+  async function startGuide() {
+    if (running || starting) return;
+    starting = true;
+    // Speak first, inside the tap, so iPhones allow speech for the rest of the session.
+    announce(model
+      ? 'PathSense on. Hold the phone at chest height, camera facing forward.'
+      : 'PathSense on. The vision model is still loading. Please wait.', { log: false });
+
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      fail('The camera needs a secure link. Open PathSense from an https address, or from localhost on a computer.');
+      starting = false;
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+    } catch (err) {
+      const name = err && err.name;
+      fail(name === 'NotAllowedError' ? 'Camera access is blocked. Allow the camera for this site in your browser settings, then press Start guide again.'
+        : name === 'NotFoundError' ? 'No camera was found on this device.'
+        : 'The camera could not start. Close other apps that use the camera, then try again.');
+      starting = false;
+      return;
+    }
+    video.srcObject = stream;
+    try { await video.play(); } catch (e) { /* autoplay is allowed: muted + started from a tap */ }
+
+    running = true; starting = false;
+    recent.length = 0; spoken.clear();
+    hadAlert = false; saidClear = true; urgentUntil = 0;
+    lastObstacleAt = performance.now(); lastFrameAt = 0; emaGap = 0; emaMs = 0;
+    lastStable = []; lastItems = new Map();
+    setRunningUI(true);
+    keepAwake();
+    loop();
+  }
+
+  function stopGuide(message) {
+    if (!running) return;
+    running = false;
+    clearTimeout(loopTimer);
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+    video.srcObject = null;
+    releaseWake();
+    clearOverlay();
+    setRunningUI(false);
+    if (message) announce(message, { urgent: true, log: false });
+  }
+
+  function fail(message) {
+    setStatus('error');
+    announce(message, { level: 1, urgent: true, log: false });
+  }
+
+  function setRunningUI(on) {
+    startBtn.textContent = on ? 'Stop guide' : 'Start guide';
+    startBtn.dataset.running = String(on);
+    intro.hidden = on;
+    meter.hidden = !on;
+    setStatus(model ? (on ? 'live' : 'ready') : 'loading');
+  }
+
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { /* not granted */ }
+  }
+  function releaseWake() {
+    try { if (wakeLock) wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+  }
+
+  function describeAround() {
+    if (!running) { announce('Press Start guide first, then ask again.', { urgent: true, log: false }); return; }
+    if (!model) { announce('The vision model is still loading.', { urgent: true, log: false }); return; }
+    const list = lastStable.length ? lastStable : Array.from(lastItems.values());
+    announce(summaryText(list), { urgent: true });
+  }
+
+  // ---------- Session log (for user testing) ----------
+  function logEntry(text, level) {
+    sessionLog.push({ time: new Date().toISOString(), level: ['info', 'close', 'very close'][level] || 'info', text });
+    renderLogCount();
+  }
+  function renderLogCount() {
+    const n = sessionLog.length;
+    $('logCount').textContent = n ? n + (n === 1 ? ' announcement' : ' announcements') + ' since the page opened.' : 'No announcements yet.';
+  }
+  function logCSV() {
+    const esc = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+    return ['time,level,announcement'].concat(sessionLog.map((r) => [r.time, r.level, r.text].map(esc).join(','))).join('\n');
+  }
+
+  // ---------- Settings form ----------
+  function fillForm() {
+    const el = form.elements;
+    el.rate.value = settings.rate;
+    el.minScore.value = settings.minScore;
+    el.verbosity.value = settings.verbosity;
+    el.direction.value = settings.direction;
+    el.output.value = settings.output;
+    el.model.value = settings.model;
+    el.vibrate.checked = settings.vibrate;
+    el.pathClear.checked = settings.pathClear;
+    renderOutputs();
+  }
+  function renderOutputs() {
+    $('rateOut').textContent = Number(settings.rate).toFixed(1) + '×';
+    $('scoreOut').textContent = Math.round(settings.minScore * 100) + '%';
+  }
+  function readForm() {
+    const el = form.elements;
+    settings.rate = parseFloat(el.rate.value);
+    settings.minScore = parseFloat(el.minScore.value);
+    settings.verbosity = el.verbosity.value;
+    settings.direction = el.direction.value;
+    settings.output = el.output.value;
+    settings.vibrate = el.vibrate.checked;
+    settings.pathClear = el.pathClear.checked;
+    const nextModel = el.model.value;
+    if (nextModel && nextModel !== settings.model) { settings.model = nextModel; loadModel(nextModel); }
+    saveSettings();
+    applyOutput();
+    renderOutputs();
+  }
+
+  // ---------- Wire up ----------
+  startBtn.addEventListener('click', () => { if (running) stopGuide('Guide paused.'); else startGuide(); });
+  aroundBtn.addEventListener('click', describeAround);
+  settingsBtn.addEventListener('click', () => { fillForm(); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); });
+  form.addEventListener('input', readForm);
+  form.addEventListener('change', readForm);
+  $('testVoice').addEventListener('click', () => {
+    announce('This is how PathSense sounds. Person, close, ' + (settings.direction === 'clock' ? "at 11 o'clock." : 'on your left.'), { urgent: true, log: false });
+  });
+  $('copyLog').addEventListener('click', () => {
+    const csv = logCSV(), area = $('logArea'), status = $('logStatus');
+    const fallback = () => {
+      area.hidden = false; area.value = csv; area.focus(); area.select();
+      status.textContent = 'Copying was blocked. The log is selected below, so copy it from there.';
+    };
+    try {
+      navigator.clipboard.writeText(csv).then(() => {
+        status.textContent = 'Copied ' + sessionLog.length + ' rows. Paste them into a spreadsheet.';
+      }, fallback);
+    } catch (e) { fallback(); }
+  });
+  $('clearLog').addEventListener('click', () => {
+    sessionLog.length = 0; renderLogCount();
+    $('logArea').hidden = true; $('logStatus').textContent = 'Log cleared.';
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && running) {
+      stopGuide(null);
+      showCaption('Paused because PathSense left the screen. Press Start guide to continue.', 0);
+    }
+  });
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(sizeOverlay).observe(view);
+  window.addEventListener('resize', sizeOverlay);
+
+  // ---------- Init ----------
+  fillForm();
+  applyOutput();
+  sizeOverlay();
+  if (!window.isSecureContext) $('secureWarn').hidden = false;
+  loadModel(settings.model);
+})();
+</script>
+</body>
+</html>

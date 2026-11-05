@@ -22,7 +22,7 @@ Phones only allow camera access on `https` links, so opening `index.html` straig
 - Detects people, two-wheelers, bicycles, cars, buses, dogs, cows, benches, chairs and other everyday obstacles (COCO-SSD, 80 object types, runs fully on the phone with TensorFlow.js).
 - Says where each one is: left, ahead or right, or clock positions (10 to 2 o'clock).
 - Escalates as you get closer: far, close, very close. Urgent alerts interrupt everything else.
-- Announces each object once per side instead of repeating every frame, and says "Path clear" when obstacles pass.
+- Announces each object once per side instead of repeating every frame. It never says the path is clear, because it cannot yet see doors, walls, poles or steps (Step 2 adds these).
 - **What's around me?** button describes the whole scene from left to right.
 - Works with TalkBack and VoiceOver (Settings → Speak through → My screen reader).
 - Vibrates on alerts (Android only; iPhone Safari has no web vibration).

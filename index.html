@@ -127,7 +127,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 <body>
 <main class="app">
   <header class="bar">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v1.2</span></div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v1.3</span></div>
     <div class="status" id="status" data-state="loading">Loading</div>
   </header>
 
@@ -141,7 +141,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       <ul class="steps">
         <li><span>Hold the phone at <strong>chest height</strong>, back camera facing forward. A lanyard or chest strap keeps one hand free.</span></li>
         <li><span>PathSense names obstacles and where they are: <strong>on your left, ahead, or on your right</strong>.</span></li>
-        <li><span>Keep using your cane or guide dog. PathSense adds information. It does not replace them.</span></li>
+        <li><span>It recognises people, vehicles, animals and furniture. It <strong>cannot see doors, walls, poles or steps yet</strong>, so keep using your cane or guide dog.</span></li>
       </ul>
       <div class="legend" aria-hidden="true">
         <b>Boxes for sighted helpers:</b>
@@ -214,7 +214,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     <fieldset>
       <legend>Extras</legend>
       <label class="choice"><input type="checkbox" name="vibrate" id="vibrate"> Vibrate on alerts (Android)</label>
-      <label class="choice"><input type="checkbox" name="pathClear" id="pathClear"> Say "Path clear" when obstacles pass</label>
+      <label class="choice"><input type="checkbox" name="quietNotice" id="quietNotice"> Say "Nothing recognised" when obstacles pass</label>
     </fieldset>
 
     <div class="field">
@@ -243,7 +243,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   const VERY_CLOSE_AT = 0.62;            // object size that counts as "very close"
   const REPEAT_MS = [12000, 7000, 4000]; // earliest repeat of the same object on the same side: far, close, very close
   const FORGET_MS = 2500;                // unseen this long, an object is announced again when it comes back
-  const CLEAR_AFTER_MS = 4000;           // quiet time before "Path clear"
+  const CLEAR_AFTER_MS = 4000;           // quiet time before "Nothing recognised" (never claim the path is clear)
   const URGENT_HOLD_MS = 1800;           // an urgent alert is not cut off by another one for this long
 
   // kind: moving | static | signal | minor. Classes not listed are "minor" and use their COCO name.
@@ -272,7 +272,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   const LEVEL_WORD = ['', 'close', 'very close'];
 
   // ---------- Settings ----------
-  const DEFAULTS = { rate: 1.1, verbosity: 'close', direction: 'sides', output: 'voice', minScore: 0.5, model: 'lite_mobilenet_v2', vibrate: true, pathClear: true };
+  const DEFAULTS = { rate: 1.1, verbosity: 'close', direction: 'sides', output: 'voice', minScore: 0.5, model: 'lite_mobilenet_v2', vibrate: true, quietNotice: false };
   const STORE_KEY = 'pathsense.settings.v1';
   const settings = loadSettings();
   function loadSettings() {
@@ -426,7 +426,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     return t;
   }
   function summaryText(list) {
-    if (!list.length) return 'Nothing detected right now. Keep using your cane.';
+    if (!list.length) return "Nothing I recognise right now. I can't see doors, walls or steps yet, so check with your cane.";
     const label = { left: 'On your left', ahead: 'Ahead', right: 'On your right' };
     const out = [];
     for (const z of ['left', 'ahead', 'right']) {
@@ -475,8 +475,8 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
         if (urgent) urgentUntil = now + URGENT_HOLD_MS;
         hadAlert = true; saidClear = false;
       }
-    } else if (settings.pathClear && hadAlert && !saidClear && now - lastObstacleAt > CLEAR_AFTER_MS && !isBusy()) {
-      announce('Path clear.', { level: 0 });
+    } else if (settings.quietNotice && hadAlert && !saidClear && now - lastObstacleAt > CLEAR_AFTER_MS && !isBusy()) {
+      announce('Nothing recognised ahead.', { level: 0 });
       saidClear = true;
     }
   }
@@ -760,7 +760,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     el.output.value = settings.output;
     el.model.value = settings.model;
     el.vibrate.checked = settings.vibrate;
-    el.pathClear.checked = settings.pathClear;
+    el.quietNotice.checked = settings.quietNotice;
     renderOutputs();
   }
   function renderOutputs() {
@@ -775,7 +775,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     settings.direction = el.direction.value;
     settings.output = el.output.value;
     settings.vibrate = el.vibrate.checked;
-    settings.pathClear = el.pathClear.checked;
+    settings.quietNotice = el.quietNotice.checked;
     const nextModel = el.model.value;
     if (nextModel && nextModel !== settings.model) { settings.model = nextModel; loadModel(nextModel); }
     saveSettings();

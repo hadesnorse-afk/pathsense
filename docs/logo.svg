@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72" role="img" aria-label="PathSense logo">
+  <title>PathSense</title>
+  <rect width="72" height="72" rx="15" fill="#FFD60A"/>
+  <g fill="#0B0B0A">
+    <circle cx="18" cy="18" r="6"/><circle cx="36" cy="18" r="6"/><circle cx="54" cy="18" r="6"/>
+    <circle cx="18" cy="36" r="6"/><circle cx="36" cy="36" r="6"/><circle cx="54" cy="36" r="6"/>
+    <circle cx="18" cy="54" r="6"/><circle cx="36" cy="54" r="6"/><circle cx="54" cy="54" r="6"/>
+  </g>
+</svg>

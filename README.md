@@ -1,19 +1,39 @@
+<div align="center">
+
+<img src="docs/logo.svg" width="72" alt="PathSense logo">
+
 # PathSense
 
-A lightweight phone web app that helps visually impaired people walk around campus. It uses the phone's camera and an on-device vision model to detect obstacles, estimates how far away they are, and speaks them out loud:
+**Hear what's in your path.**
+An AI walking assistant for visually impaired people. It runs in the phone's browser, sees through the back camera, and speaks obstacles with their distance and direction. Everything runs on the phone; no video leaves the device.
 
-> "TV, about 2 metres, ahead. Try going around on your left."
+[![Open the live app](https://img.shields.io/badge/live%20app-open%20on%20your%20phone-FFD60A?style=for-the-badge&labelColor=0B0B0A)](https://hadesnorse-afk.github.io/pathsense/)
+
+![Version](https://img.shields.io/badge/version-2.1-FFD60A?labelColor=0B0B0A)
+![TensorFlow.js](https://img.shields.io/badge/TensorFlow.js-4.22-FF6F00?logo=tensorflow&logoColor=white)
+![Model](https://img.shields.io/badge/model-COCO--SSD-F6F3E4?labelColor=0B0B0A)
+![Inference](https://img.shields.io/badge/inference-on--device-5BE38A?labelColor=0B0B0A)
+![License](https://img.shields.io/badge/license-MIT-F6F3E4?labelColor=0B0B0A)
+
+<img src="docs/screenshot-start.png" width="270" alt="PathSense start screen: Tap anywhere to start, with instructions"> &nbsp; <img src="docs/screenshot-settings.png" width="270" alt="PathSense settings: speech speed, distance in metres or steps, directions">
+
+</div>
+
+> "Person, about 3 metres, ahead."
 > "Stop. Person, about 1 metre, ahead. Try going around on your right."
 
-PathSense supports a white cane or guide dog. It does not replace them.
+## Try it on your phone
 
-## Try it
+<img align="right" src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data=https%3A%2F%2Fhadesnorse-afk.github.io%2Fpathsense%2F" width="160" alt="QR code for the PathSense live app">
 
-Open **https://hadesnorse-afk.github.io/pathsense/** on your phone (Safari on iPhone, Chrome on Android). The camera turns on by itself; allow it when asked, then **tap anywhere once** to turn on the voice. Phones block sound from web pages until the screen has been touched, so that one tap is unavoidable.
+1. Scan the QR code, or open **https://hadesnorse-afk.github.io/pathsense/** in **Safari** (iPhone) or **Chrome** (Android).
+2. Allow the camera when asked. It turns on by itself.
+3. **Tap anywhere once** to turn on the voice. Phones block sound from web pages until the screen is touched, so that one tap can't be skipped.
+4. Hold the phone at chest height with the back camera facing forward, and walk slowly.
 
-Phones only allow camera access on `https` links, so opening `index.html` straight from the Files app or an AirDrop will not work.
+Check that the version next to "PathSense" matches the badge above. If it doesn't, close the tab and open the link again.
 
-**On a laptop:** run `python -m http.server 8000` in this folder and open `http://localhost:8000` (localhost counts as secure, so the webcam works).
+<br clear="right">
 
 ## Using it without looking
 
@@ -24,27 +44,67 @@ Phones only allow camera access on `https` links, so opening `index.html` straig
 | Shake the phone | Hear what's around you again |
 | Switch away and come back | Camera resumes on its own |
 
-With VoiceOver or TalkBack on, the camera view is one big button: double-tap it to hear what's around you. In Settings, choose **Speak through → My screen reader** so the two voices don't overlap.
+With **VoiceOver** or **TalkBack** on, the camera view is one big button: double-tap it to hear what's around you. In Settings, choose **Speak through → My screen reader** so the two voices don't overlap.
 
-## What it does
+## What it can and can't do
 
-- Detects people, two-wheelers, bicycles, cars, buses, dogs, cows, benches, chairs, tables, TVs and other everyday obstacles (COCO-SSD, 80 object types, runs fully on the phone with TensorFlow.js).
-- Estimates distance from each object's typical size, in metres or steps.
-- Says where each one is: left, ahead or right, or clock positions (10 to 2 o'clock).
-- Suggests which side to go around, based on what it can see on each side.
-- Talks one message at a time with a short pause between messages. Only things in your path are announced; things to the side only when they're about to touch you.
-- "Stop" warnings for something very close in your path cut in instantly, even mid-sentence.
-- Keeps warning while something stays close: a very close obstacle is repeated every 6 seconds, and the beeps speed up in between.
-- Remembers an obstacle that disappears from view while close (usually because it fills the whole camera) and warns "may be right in front of you".
-- Beeps faster as you get closer to the nearest thing ahead, like a car parking sensor.
-- Never says the path is clear, because it cannot yet see doors, walls, poles or steps (Step 2 adds these).
-- Falls back from WebGL to WebAssembly to plain CPU if the phone's graphics engine fails.
-- Coloured boxes with distances for sighted helpers: red = very close, yellow = close, dashed white = further away.
-- **Test session log** in Settings: copy every announcement with timestamps as CSV for user-study analysis.
+| Works now | Not yet |
+|---|---|
+| People, two-wheelers, bicycles, cars, buses, trucks | Doors (open or closed) |
+| Dogs, cows, horses, goats | Walls |
+| Benches, chairs, tables, sofas, TVs, fridges, plant pots | Poles, bollards, kerbs, steps, stairs |
+| Traffic lights and stop signs | E-scooters, construction barriers, crosswalk buttons |
+| Distance in metres or steps, direction as left/ahead/right or clock face | Reading signs |
+
+It works best **outdoors**, where obstacles are seen from a distance. Indoors, most obstacles are doors, walls and furniture up close, which the current model handles poorly. The "Not yet" column is what the campus model in the roadmap adds. Because it can't see everything, **PathSense never says the path is clear**.
+
+## How it works
+
+```mermaid
+flowchart LR
+  A["Back camera"] --> B["Frame shrunk to 480 px"]
+  B --> C["COCO-SSD object detector<br/>(SSD-Lite MobileNet v2, TensorFlow.js)"]
+  C --> D["Distance estimate<br/>(pinhole camera model)"]
+  D --> E["Zone: left / ahead / right"]
+  E --> F["Decision engine<br/>smoothing · priority · memory · pacing"]
+  F --> G["Voice<br/>(Web Speech API)"]
+  F --> H["Proximity beeps<br/>(Web Audio)"]
+  F --> I["Vibration<br/>(Android)"]
+```
+
+**Detection.** Each camera frame goes through COCO-SSD, a single-shot detector trained on the 80 COCO object classes. It runs on the phone's GPU through WebGL. If Safari's WebGL fails, it falls back to WebAssembly, then to plain CPU.
+
+**Distance.** Each object class has a typical real height (a person is about 1.7 m, a chair about 0.9 m). With the camera's field of view, the pinhole model gives:
+
+```
+distance ≈ real_height × focal_px / box_height_px
+focal_px  = (frame_long_side_px / 2) / tan(FOV / 2)        FOV ≈ 70°
+```
+
+A box cut off by the frame edge looks smaller than the object really is, so the estimate is capped by box size in that case.
+
+**Decision engine.** This is what turns raw detections into calm, useful speech:
+- **Smoothing:** an object must appear in 2 of 3 frames before it's announced, unless it's very close.
+- **Priority:** what's in your path comes first, then moving things, then nearest. Things to the side are only mentioned when they're about to touch you.
+- **Pacing:** one message at a time, with a 2.5 s quiet gap. "Stop" warnings skip the queue and cut in instantly.
+- **Memory:** if something close in your path suddenly disappears, it has usually filled the whole camera view. The app keeps warning for 3 s instead of going silent.
+- **Beeps:** like a car parking sensor, the beeps speed up as the nearest thing ahead gets closer.
+
+## Testing with friends
+
+**Safety first.** Walk right beside your tester the whole time, in a quiet, flat area with no traffic, stairs or drops. The app misses things.
+
+1. Set up a short route with 4–5 obstacles: a person standing still, a parked two-wheeler, a bench, a chair.
+2. In Settings, tap **Clear log**. Let the tester walk the route twice with their eyes closed.
+3. Note every obstacle it **warned** about, every one it **missed**, and every **false alarm**.
+4. In Settings, tap **Copy as CSV** to copy the session log.
+5. **[Send a test report](https://github.com/hadesnorse-afk/pathsense/issues/new?template=test-report.yml)**. The form takes about 3 minutes. No GitHub account? Send the same details on WhatsApp instead.
+
+Tests with sighted people who close their eyes are pilot tests. They find bugs, but they don't replace testing with visually impaired users.
 
 ## Tuning
 
-Constants at the top of the script in `index.html`:
+Constants at the top of the script in [`index.html`](index.html):
 
 | Constant | Default | What it does |
 |---|---|---|
@@ -52,7 +112,7 @@ Constants at the top of the script in `index.html`:
 | `VERY_CLOSE_M` | `1.2` | Nearer than this: "Stop." ahead, "Careful." on the sides |
 | `CLOSE_M` | `2.6` | Nearer than this: announced as an obstacle |
 | `REPEAT_MS` | `[20000, 12000, 6000]` | Repeat the same object on the same side after (far, close, very close) |
-| `QUIET_GAP_MS` | `2500` | Silence after each message before the next one. "Stop" warnings skip it and cut in at once |
+| `QUIET_GAP_MS` | `2500` | Silence after each message. "Stop" warnings skip it |
 | `MEMORY_MS` | `3000` | How long to keep warning about an obstacle that vanished while close |
 | `LOOP_GAP_MS` | `40` | Pause between detections; raise it if the phone gets hot |
 
@@ -60,11 +120,36 @@ Typical object heights used for distance live in the `CLASSES` table.
 
 ## Roadmap
 
-1. **Core app** (done): camera, obstacle detection, distance, spoken directions, hands-free use.
-2. **Campus model:** recognise what the stock model can't: doors (open or closed), walls, stairs, poles, e-scooters, construction barriers, crosswalk buttons.
-3. **Signs and entrances:** read specific local signs and help find the exact entrance of a building.
-4. **User testing:** 5 visually impaired testers on campus with a local association for the blind, using the session log and a feedback form.
+- [x] **Core app:** camera, obstacle detection, distance, spoken directions, hands-free gestures
+- [ ] **Campus model:** a custom model trained on campus photos for doors, walls, stairs, poles, kerbs, e-scooters, construction barriers and crosswalk buttons
+- [ ] **Signs and entrances:** read specific local signs and find the exact entrance of a building
+- [ ] **User study:** testing with 5 visually impaired people through a local association for the blind
 
-## Tech
+See the [changelog](CHANGELOG.md) for what changed in each version.
 
-Single `index.html`, no build step. TensorFlow.js 4.22.0 (WebGL, WebAssembly and CPU backends) and COCO-SSD 2.2.3 from jsDelivr, Web Speech API for voice, Web Audio for beeps, Screen Wake Lock to keep the screen on while guiding.
+## Run it locally
+
+It's a single [`index.html`](index.html) with no build step.
+
+```bash
+git clone https://github.com/hadesnorse-afk/pathsense.git
+cd pathsense
+python -m http.server 8000
+# open http://localhost:8000 (localhost counts as secure, so the webcam works)
+```
+
+Opening the file directly, or from the Files app or an AirDrop, won't work: browsers only allow the camera on `https` or `localhost`.
+
+## Tech stack
+
+TensorFlow.js 4.22 (WebGL, WebAssembly and CPU backends) · COCO-SSD 2.2.3 · Web Speech API · Web Audio API · Screen Wake Lock · GitHub Pages
+
+## About
+
+Built by [@hadesnorse-afk](https://github.com/hadesnorse-afk), an AI & ML student at **Vishwakarma University, Pune**.
+
+PathSense supports a white cane or guide dog. It does not replace them.
+
+## License
+
+[MIT](LICENSE)

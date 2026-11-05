@@ -1,0 +1,103 @@
+name: Test report
+description: Tell us how PathSense did on your test walk (about 3 minutes)
+title: "[Test] "
+labels: ["test report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing PathSense! Fill in what you remember. Rough notes are fine.
+        To copy the session log: in the app, open **Settings → Copy as CSV**, then paste it in the last box.
+
+  - type: input
+    id: phone
+    attributes:
+      label: Phone and browser
+      placeholder: "e.g. iPhone 15, Safari / Pixel 7, Chrome"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version shown next to "PathSense"
+      placeholder: "e.g. v2.1"
+    validations:
+      required: true
+
+  - type: input
+    id: mode
+    attributes:
+      label: Mode shown in the grey text on the start screen
+      description: The words in brackets after "Vision model ready", e.g. "fast model, webgl" or "compatibility mode, wasm".
+      placeholder: "e.g. fast model, webgl"
+
+  - type: dropdown
+    id: place
+    attributes:
+      label: Where did you test?
+      options:
+        - Outdoors, on a path or road side
+        - Outdoors, in an open area
+        - Indoors
+    validations:
+      required: true
+
+  - type: textarea
+    id: warned
+    attributes:
+      label: Obstacles it warned about in time
+      placeholder: "e.g. person ahead at about 3 m, parked two-wheeler on the right"
+
+  - type: textarea
+    id: missed
+    attributes:
+      label: Obstacles it missed or warned about too late
+      placeholder: "e.g. bench, only warned when I was already touching it"
+
+  - type: textarea
+    id: false-alarms
+    attributes:
+      label: False alarms
+      placeholder: "e.g. said 'chair' when there was nothing there"
+
+  - type: dropdown
+    id: talk
+    attributes:
+      label: How much did it talk?
+      options:
+        - Too much
+        - About right
+        - Too little
+
+  - type: dropdown
+    id: distance
+    attributes:
+      label: Did the distances feel right?
+      options:
+        - It said things were further than they really were
+        - About right
+        - It said things were closer than they really were
+        - I didn't notice
+
+  - type: dropdown
+    id: trust
+    attributes:
+      label: Would you trust it on a real walk (together with a cane)?
+      options:
+        - "Yes"
+        - Maybe, with improvements
+        - "No"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      placeholder: "What confused you, what you liked, what you'd change"
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Session log
+      description: Settings → Copy as CSV, then paste here.
+      render: text

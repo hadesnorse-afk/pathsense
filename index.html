@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;700;800&family=Atkinson+Hyperlegible+Mono:wght@500;700&display=swap">
 <style>
-/* Layout: one-screen camera view. Status strip on top, camera fills the middle,
-   spoken caption and three large controls docked at the thumb end.
+/* Layout: one-screen camera view. Status strip on top, camera fills the middle and is one big
+   touch target (tap = describe, hold = pause), spoken caption and controls docked at the thumb end.
    Single high-contrast dark look on purpose: low-vision users and a live camera feed. */
 :root{
   --ink:#0B0B0A;          /* ground */
@@ -56,14 +56,16 @@ body{background:var(--ink);color:var(--paper);font-family:var(--font-ui);font-si
 .status[data-state="error"]{color:var(--danger);border-color:currentColor}
 @keyframes pulse{50%{opacity:.2}}
 
-/* Camera view; the dot grid echoes warning tactile paving */
-.view{position:relative;overflow:hidden;min-height:0;background:radial-gradient(circle,var(--dome) 2px,transparent 2.6px) 0 0/22px 22px,var(--ink)}
-.view video,.view canvas{position:absolute;inset:0;width:100%;height:100%}
+/* Camera view: one big touch target. The dot grid echoes warning tactile paving. */
+.view{position:relative;overflow:hidden;min-height:0;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;background:radial-gradient(circle,var(--dome) 2px,transparent 2.6px) 0 0/22px 22px,var(--ink)}
+.view:focus-visible{outline:4px solid var(--signal);outline-offset:-4px}
+.view video,.view canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .view video{object-fit:cover}
-.meter{position:absolute;top:10px;left:max(12px, env(safe-area-inset-left, 0px));font-family:var(--font-data);font-size:.74rem;font-variant-numeric:tabular-nums;color:var(--paper);background:var(--scrim);padding:4px 8px;border-radius:6px}
+.meter{position:absolute;top:10px;left:max(12px, env(safe-area-inset-left, 0px));font-family:var(--font-data);font-size:.74rem;font-variant-numeric:tabular-nums;color:var(--paper);background:var(--scrim);padding:4px 8px;border-radius:6px;pointer-events:none}
+.hint-chip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-family:var(--font-data);font-size:.74rem;color:var(--paper);background:var(--scrim);padding:5px 10px;border-radius:999px;white-space:nowrap;pointer-events:none}
 
-.intro{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;overflow:auto;padding-block:20px 18px;padding-left:var(--gutter-l);padding-right:var(--gutter-r);background:linear-gradient(to top,var(--ink) 55%,rgba(11,11,10,0))}
-.intro h1{margin:0;font-size:clamp(1.85rem,7.5vw,2.6rem);line-height:1.06;font-weight:800;letter-spacing:-.01em;text-wrap:balance;max-width:15ch}
+.intro{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;overflow:auto;padding-block:20px 18px;padding-left:var(--gutter-l);padding-right:var(--gutter-r);background:linear-gradient(to top,var(--ink) 60%,rgba(11,11,10,.35))}
+.intro h1{margin:0;font-size:clamp(2rem,8vw,2.8rem);line-height:1.04;font-weight:800;letter-spacing:-.01em;text-wrap:balance;max-width:14ch;color:var(--signal)}
 .steps{margin:0;padding:0;list-style:none;display:grid;gap:10px;max-width:38rem}
 .steps li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:12px;align-items:start}
 .steps li::before{content:"";width:14px;height:14px;margin-top:.32em;border-radius:50%;background:var(--signal)}
@@ -80,17 +82,17 @@ body{background:var(--ink);color:var(--paper);font-family:var(--font-ui);font-si
 /* Spoken caption */
 .caption{display:grid;gap:2px;min-height:5.4rem;align-content:center;padding-block:12px;padding-left:var(--gutter-l);padding-right:var(--gutter-r);background:var(--panel);border-top:3px solid var(--line)}
 .caption-time{font-family:var(--font-data);font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
-.caption-text{font-size:1.38rem;font-weight:800;line-height:1.22;overflow-wrap:anywhere}
+.caption-text{font-size:1.32rem;font-weight:800;line-height:1.22;overflow-wrap:anywhere}
 .caption[data-level="close"]{border-top-color:var(--signal)}
 .caption[data-level="urgent"]{border-top-color:var(--danger);background:var(--danger-bg)}
 
-/* Controls */
+/* Controls (mainly for sighted helpers; blind users use tap, hold and shake) */
 .controls{display:grid;gap:10px;padding-block:4px 14px;padding-left:var(--gutter-l);padding-right:var(--gutter-r);background:var(--panel)}
 .controls .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-button{font:inherit;color:inherit;cursor:pointer;min-height:64px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:var(--raised);font-weight:700;font-size:1.05rem;line-height:1.2}
+button{font:inherit;color:inherit;cursor:pointer;min-height:60px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:var(--raised);font-weight:700;font-size:1.05rem;line-height:1.2}
 button:active{transform:translateY(1px)}
 button:focus-visible,input:focus-visible{outline:4px solid var(--signal);outline-offset:3px}
-.primary{min-height:84px;font-size:1.55rem;font-weight:800;background:var(--signal);border-color:var(--signal);color:var(--ink)}
+.primary{min-height:72px;font-size:1.45rem;font-weight:800;background:var(--signal);border-color:var(--signal);color:var(--ink)}
 .primary:focus-visible{outline-color:var(--paper)}
 .primary[data-running="true"]{background:transparent;color:var(--paper);border-color:var(--paper)}
 
@@ -119,7 +121,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
-<!-- Vision: TensorFlow.js + COCO-SSD (pretrained on 80 everyday object types) -->
+<!-- Vision: TensorFlow.js + COCO-SSD (pretrained on 80 everyday object types); WASM backend as a fallback for Safari -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tf-backend-wasm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
@@ -127,21 +129,22 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 <body>
 <main class="app">
   <header class="bar">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v1.3</span></div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v2.0</span></div>
     <div class="status" id="status" data-state="loading">Loading</div>
   </header>
 
-  <section class="view" id="view" aria-label="Camera">
+  <section class="view" id="view" role="button" tabindex="0" aria-label="Tap anywhere to start PathSense" aria-describedby="introSteps">
     <video id="video" playsinline muted autoplay aria-hidden="true"></video>
     <canvas id="overlay" aria-hidden="true"></canvas>
     <div class="meter" id="meter" aria-hidden="true" hidden>Starting…</div>
+    <div class="hint-chip" id="hintChip" aria-hidden="true" hidden>Tap: what's around · Hold: pause</div>
 
     <div class="intro" id="intro">
-      <h1>Hear what's in your path</h1>
-      <ul class="steps">
-        <li><span>Hold the phone at <strong>chest height</strong>, back camera facing forward. A lanyard or chest strap keeps one hand free.</span></li>
-        <li><span>PathSense names obstacles and where they are: <strong>on your left, ahead, or on your right</strong>.</span></li>
-        <li><span>It recognises people, vehicles, animals and furniture. It <strong>cannot see doors, walls, poles or steps yet</strong>, so keep using your cane or guide dog.</span></li>
+      <h1 id="introTitle">Tap anywhere to start</h1>
+      <ul class="steps" id="introSteps">
+        <li><span>Hold the phone at <strong>chest height</strong>, back camera facing forward.</span></li>
+        <li><span><strong>Tap the screen</strong> to hear what's around you. <strong>Press and hold</strong> to pause. <strong>Shake</strong> the phone to hear it again.</span></li>
+        <li><span>It warns about people, vehicles, animals and furniture with distance and direction, and beeps faster as you get closer. It <strong>cannot see doors, walls, poles or steps yet</strong>, so keep using your cane.</span></li>
       </ul>
       <div class="legend" aria-hidden="true">
         <b>Boxes for sighted helpers:</b>
@@ -150,13 +153,14 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
         <span class="k-far"><i></i>further away</span>
       </div>
       <p class="warn" id="secureWarn" hidden>The camera only works on a secure link. Open PathSense from an https address, or from localhost on a computer.</p>
+      <p class="warn" id="cameraNote" hidden></p>
       <p class="model-note" id="modelNote" role="status">Loading the vision model…</p>
     </div>
   </section>
 
   <div class="caption" id="caption" data-level="info" role="status" aria-live="off" aria-atomic="true">
     <span class="caption-time" id="captionTime" aria-hidden="true">Last announcement</span>
-    <span class="caption-text" id="captionText">Press Start guide to begin.</span>
+    <span class="caption-text" id="captionText">Tap anywhere to start.</span>
   </div>
 
   <nav class="controls" aria-label="Guide controls">
@@ -182,9 +186,9 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     </div>
 
     <fieldset>
-      <legend>What to announce</legend>
-      <label class="choice"><input type="radio" name="verbosity" id="verbClose" value="close"> Close obstacles and traffic signals</label>
-      <label class="choice"><input type="radio" name="verbosity" id="verbAll" value="all"> Everything the camera sees</label>
+      <legend>Distance in</legend>
+      <label class="choice"><input type="radio" name="units" id="unitsMetres" value="metres"> Metres</label>
+      <label class="choice"><input type="radio" name="units" id="unitsSteps" value="steps"> Steps</label>
     </fieldset>
 
     <fieldset>
@@ -194,14 +198,28 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     </fieldset>
 
     <fieldset>
+      <legend>What to announce</legend>
+      <label class="choice"><input type="radio" name="verbosity" id="verbClose" value="close"> Obstacles near me and traffic signals</label>
+      <label class="choice"><input type="radio" name="verbosity" id="verbAll" value="all"> Everything the camera sees</label>
+    </fieldset>
+
+    <fieldset>
       <legend>Speak through</legend>
       <label class="choice"><input type="radio" name="output" id="outVoice" value="voice"> PathSense voice</label>
       <label class="choice"><input type="radio" name="output" id="outReader" value="reader"> My screen reader (TalkBack or VoiceOver)</label>
     </fieldset>
 
+    <fieldset>
+      <legend>Hands-free</legend>
+      <label class="choice"><input type="checkbox" name="beeps" id="beeps"> Beep faster as I get closer to something ahead</label>
+      <label class="choice"><input type="checkbox" name="shake" id="shake"> Shake the phone to hear what's around me</label>
+      <label class="choice"><input type="checkbox" name="vibrate" id="vibrate"> Vibrate on alerts (Android)</label>
+      <label class="choice"><input type="checkbox" name="quietNotice" id="quietNotice"> Say "Nothing recognised" when obstacles pass</label>
+    </fieldset>
+
     <div class="field">
-      <div class="range-head"><label for="minScore" class="field-label">Detection confidence</label><output id="scoreOut" for="minScore">50%</output></div>
-      <input type="range" id="minScore" name="minScore" min="0.35" max="0.8" step="0.05">
+      <div class="range-head"><label for="minScore" class="field-label">Detection confidence</label><output id="scoreOut" for="minScore">45%</output></div>
+      <input type="range" id="minScore" name="minScore" min="0.3" max="0.8" step="0.05">
       <p class="hint">Lower finds more objects but makes more mistakes.</p>
     </div>
 
@@ -209,12 +227,6 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       <legend>Vision model</legend>
       <label class="choice"><input type="radio" name="model" id="modelFast" value="lite_mobilenet_v2"> Fast, for most phones</label>
       <label class="choice"><input type="radio" name="model" id="modelAcc" value="mobilenet_v2"> Accurate, slower</label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Extras</legend>
-      <label class="choice"><input type="checkbox" name="vibrate" id="vibrate"> Vibrate on alerts (Android)</label>
-      <label class="choice"><input type="checkbox" name="quietNotice" id="quietNotice"> Say "Nothing recognised" when obstacles pass</label>
     </fieldset>
 
     <div class="field">
@@ -238,42 +250,66 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 
   // ---------- Tunables: adjust these after walking your campus ----------
   const DETECT_LONG_SIDE = 480;          // camera frame is shrunk to this many pixels before detection
-  const LOOP_GAP_MS = 60;                // pause between detections; raise it if the phone gets hot
-  const CLOSE_AT = 0.36;                 // object size (share of the frame) that counts as "close"
-  const VERY_CLOSE_AT = 0.62;            // object size that counts as "very close"
-  const REPEAT_MS = [12000, 7000, 4000]; // earliest repeat of the same object on the same side: far, close, very close
+  const LOOP_GAP_MS = 40;                // pause between detections; raise it if the phone gets hot
+  const CAMERA_FOV_DEG = 70;             // camera's field of view along the frame's long side; tune if distances read long or short
+  const VERY_CLOSE_M = 1.2;              // nearer than this: "Stop." (ahead) or "Careful." (sides)
+  const CLOSE_M = 2.6;                   // nearer than this: announced as an obstacle
+  const VERY_CLOSE_AT = 0.62;            // box height (share of frame) that is very close even if the box is cut off
+  const CLOSE_AT = 0.36;                 // box height that is close even if the box is cut off
+  const REPEAT_MS = [15000, 6000, 3000]; // repeat the same object on the same side after: far, close, very close
+  const CLOSER_REPEAT_MS = 1500;         // repeat sooner when the object got closer
   const FORGET_MS = 2500;                // unseen this long, an object is announced again when it comes back
+  const MEMORY_MS = 3000;                // keep warning about something in front that vanished (often: too close for the camera)
   const CLEAR_AFTER_MS = 4000;           // quiet time before "Nothing recognised" (never claim the path is clear)
   const URGENT_HOLD_MS = 1800;           // an urgent alert is not cut off by another one for this long
+  const HOLD_MS = 900;                   // press and hold this long to pause or resume
+  const STEP_M = 0.7;                    // one walking step, for "about 3 steps"
 
-  // kind: moving | static | signal | minor. Classes not listed are "minor" and use their COCO name.
+  // h = typical real height in metres, used to estimate distance. kind: moving | static | signal
   const CLASSES = {
-    'person':        { say: 'person',        plural: 'people',         kind: 'moving' },
-    'bicycle':       { say: 'bicycle',       plural: 'bicycles',       kind: 'moving' },
-    'motorcycle':    { say: 'two-wheeler',   plural: 'two-wheelers',   kind: 'moving' },
-    'car':           { say: 'car',           plural: 'cars',           kind: 'moving' },
-    'bus':           { say: 'bus',           plural: 'buses',          kind: 'moving' },
-    'truck':         { say: 'truck',         plural: 'trucks',         kind: 'moving' },
-    'dog':           { say: 'dog',           plural: 'dogs',           kind: 'moving' },
-    'cow':           { say: 'cow',           plural: 'cows',           kind: 'moving' },
-    'horse':         { say: 'horse',         plural: 'horses',         kind: 'moving' },
-    'bench':         { say: 'bench',         plural: 'benches',        kind: 'static' },
-    'chair':         { say: 'chair',         plural: 'chairs',         kind: 'static' },
-    'potted plant':  { say: 'plant pot',     plural: 'plant pots',     kind: 'static' },
-    'fire hydrant':  { say: 'fire hydrant',  plural: 'fire hydrants',  kind: 'static' },
-    'parking meter': { say: 'parking meter', plural: 'parking meters', kind: 'static' },
-    'dining table':  { say: 'table',         plural: 'tables',         kind: 'static' },
-    'couch':         { say: 'sofa',          plural: 'sofas',          kind: 'static' },
-    'suitcase':      { say: 'suitcase',      plural: 'suitcases',      kind: 'static' },
-    'traffic light': { say: 'traffic light', plural: 'traffic lights', kind: 'signal' },
-    'stop sign':     { say: 'stop sign',     plural: 'stop signs',     kind: 'signal' }
+    'person':        { say: 'person',        plural: 'people',         kind: 'moving', h: 1.7 },
+    'bicycle':       { say: 'bicycle',       plural: 'bicycles',       kind: 'moving', h: 1.0 },
+    'motorcycle':    { say: 'two-wheeler',   plural: 'two-wheelers',   kind: 'moving', h: 1.1 },
+    'car':           { say: 'car',           plural: 'cars',           kind: 'moving', h: 1.5 },
+    'bus':           { say: 'bus',           plural: 'buses',          kind: 'moving', h: 3.0 },
+    'truck':         { say: 'truck',         plural: 'trucks',         kind: 'moving', h: 3.0 },
+    'train':         { say: 'train',         plural: 'trains',         kind: 'moving', h: 3.5 },
+    'dog':           { say: 'dog',           plural: 'dogs',           kind: 'moving', h: 0.6 },
+    'cat':           { say: 'cat',           plural: 'cats',           kind: 'moving', h: 0.3 },
+    'cow':           { say: 'cow',           plural: 'cows',           kind: 'moving', h: 1.4 },
+    'horse':         { say: 'horse',         plural: 'horses',         kind: 'moving', h: 1.6 },
+    'sheep':         { say: 'goat or sheep', plural: 'goats or sheep', kind: 'moving', h: 0.8 },
+    'bench':         { say: 'bench',         plural: 'benches',        kind: 'static', h: 0.8 },
+    'chair':         { say: 'chair',         plural: 'chairs',         kind: 'static', h: 0.9 },
+    'couch':         { say: 'sofa',          plural: 'sofas',          kind: 'static', h: 0.85 },
+    'bed':           { say: 'bed',           plural: 'beds',           kind: 'static', h: 0.6 },
+    'dining table':  { say: 'table',         plural: 'tables',         kind: 'static', h: 0.75 },
+    'tv':            { say: 'TV',            plural: 'TVs',            kind: 'static', h: 0.6 },
+    'refrigerator':  { say: 'fridge',        plural: 'fridges',        kind: 'static', h: 1.7 },
+    'oven':          { say: 'oven',          plural: 'ovens',          kind: 'static', h: 0.9 },
+    'sink':          { say: 'sink',          plural: 'sinks',          kind: 'static', h: 0.3 },
+    'toilet':        { say: 'toilet',        plural: 'toilets',        kind: 'static', h: 0.75 },
+    'potted plant':  { say: 'plant pot',     plural: 'plant pots',     kind: 'static', h: 0.6 },
+    'fire hydrant':  { say: 'fire hydrant',  plural: 'fire hydrants',  kind: 'static', h: 0.7 },
+    'parking meter': { say: 'parking meter', plural: 'parking meters', kind: 'static', h: 1.2 },
+    'suitcase':      { say: 'suitcase',      plural: 'suitcases',      kind: 'static', h: 0.6 },
+    'backpack':      { say: 'bag',           plural: 'bags',           kind: 'static', h: 0.45 },
+    'umbrella':      { say: 'umbrella',      plural: 'umbrellas',      kind: 'static', h: 0.9 },
+    'skateboard':    { say: 'skateboard',    plural: 'skateboards',    kind: 'static', h: 0.12 },
+    'traffic light': { say: 'traffic light', plural: 'traffic lights', kind: 'signal', h: 1.0 },
+    'stop sign':     { say: 'stop sign',     plural: 'stop signs',     kind: 'signal', h: 0.75 }
   };
+  // Small things you don't walk into; announced only in "Everything" mode.
+  const SMALL = new Set(['cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
+    'hot dog', 'pizza', 'donut', 'cake', 'wine glass', 'bottle', 'mouse', 'remote', 'keyboard', 'cell phone', 'laptop', 'book',
+    'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush', 'tie', 'handbag', 'frisbee', 'sports ball', 'kite',
+    'baseball bat', 'baseball glove', 'tennis racket', 'skis', 'snowboard', 'surfboard', 'microwave', 'toaster', 'bird']);
   const MODEL_LABEL = { lite_mobilenet_v2: 'fast model', mobilenet_v2: 'accurate model' };
-  const LEVEL_WORD = ['', 'close', 'very close'];
 
   // ---------- Settings ----------
-  const DEFAULTS = { rate: 1.1, verbosity: 'close', direction: 'sides', output: 'voice', minScore: 0.5, model: 'lite_mobilenet_v2', vibrate: true, quietNotice: false };
-  const STORE_KEY = 'pathsense.settings.v1';
+  const DEFAULTS = { rate: 1.1, units: 'metres', direction: 'sides', verbosity: 'close', output: 'voice', minScore: 0.45,
+    model: 'lite_mobilenet_v2', beeps: true, shake: true, vibrate: true, quietNotice: false };
+  const STORE_KEY = 'pathsense.settings.v2';
   const settings = loadSettings();
   function loadSettings() {
     try {
@@ -288,7 +324,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   // ---------- Elements ----------
   const $ = (id) => document.getElementById(id);
   const view = $('view'), video = $('video'), overlay = $('overlay'), octx = overlay.getContext('2d');
-  const statusEl = $('status'), meter = $('meter'), intro = $('intro'), modelNote = $('modelNote');
+  const statusEl = $('status'), meter = $('meter'), hintChip = $('hintChip'), intro = $('intro'), modelNote = $('modelNote');
   const caption = $('caption'), captionText = $('captionText'), captionTime = $('captionTime');
   const startBtn = $('startBtn'), aroundBtn = $('aroundBtn'), settingsBtn = $('settingsBtn');
   const dlg = $('settings'), form = $('settingsForm');
@@ -302,10 +338,13 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   // ---------- State ----------
   let model = null, modelLabel = MODEL_LABEL[settings.model], loadToken = 0;
   let stream = null, running = false, starting = false, loopTimer = 0, wakeLock = null;
+  let audioUnlocked = false, userPaused = false, resumeOnReturn = false;
   const recent = [];             // item maps from the last 3 frames, for smoothing
-  const spoken = new Map();      // key -> { t, level, seen }
+  const spoken = new Map();      // key -> { t, level, bucket, seen }
   let lastStable = [], lastItems = new Map();
   let lastObstacleAt = 0, hadAlert = false, saidClear = true, urgentUntil = 0;
+  let memory = null;             // last obstacle seen in the walking path: { it, at, warned }
+  let nearestAhead = Infinity;   // metres to the nearest thing in the walking path, drives the beeps
   let emaMs = 0, emaGap = 0, lastFrameAt = 0;
   const sessionLog = [];
 
@@ -326,6 +365,8 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   }
   if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; }
 
+  function canSpeak() { return audioUnlocked || settings.output === 'reader'; }
+
   function isBusy() {
     const now = performance.now();
     if (settings.output === 'reader' || !synth) return now - lastAnnouncedAt < 2500;
@@ -342,7 +383,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     lastAnnouncedAt = now;
     showCaption(text, o.level);
     if (o.log) logEntry(text, o.level);
-    if (settings.output === 'reader' || !synth) return; // the caption is an assertive live region in this mode
+    if (settings.output === 'reader' || !synth || !audioUnlocked) return; // reader mode: the caption is an assertive live region
     if (o.urgent) synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = settings.rate;
@@ -367,47 +408,136 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     try { navigator.vibrate(pattern); } catch (e) { /* not supported */ }
   }
 
+  // ---------- Sound and motion (need one tap first; phones block sound until the screen is touched) ----------
+  let actx = null, beepTimer = 0;
+  function ensureAudio() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* older Safari */ }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!actx && AC) actx = new AC();
+      if (actx && actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function beep(freq, ms) {
+    if (!actx || actx.state !== 'running') return;
+    const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + ms / 1000 + 0.02);
+  }
+  // Parking-sensor style: the closer the nearest thing ahead, the faster the beeps.
+  function beepLoop() {
+    clearTimeout(beepTimer);
+    let gap = 250;
+    if (running && settings.beeps && audioUnlocked) {
+      const d = nearestAhead;
+      const every = d < 0.6 ? 140 : d < 1.0 ? 280 : d < 1.6 ? 520 : d < CLOSE_M ? 900 : 0;
+      if (every) { beep(d < 1.0 ? 1250 : 880, 70); gap = every; }
+    }
+    beepTimer = setTimeout(beepLoop, gap);
+  }
+
+  let shakePeaks = [], lastShakeAt = 0, motionOn = false;
+  function onMotion(e) {
+    if (!settings.shake || !running) return;
+    const a = e.acceleration;
+    if (!a || a.x == null) return;
+    if (Math.hypot(a.x, a.y, a.z) < 18) return;
+    const now = performance.now();
+    shakePeaks = shakePeaks.filter((t) => now - t < 800);
+    shakePeaks.push(now);
+    if (shakePeaks.length >= 3 && now - lastShakeAt > 2500) { lastShakeAt = now; shakePeaks = []; describeAround(); }
+  }
+  function enableMotion() {
+    if (motionOn) return;
+    motionOn = true;
+    try {
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then((s) => { if (s === 'granted') window.addEventListener('devicemotion', onMotion); }).catch(() => {});
+      } else {
+        window.addEventListener('devicemotion', onMotion);
+      }
+    } catch (e) { /* no motion sensor */ }
+  }
+
+  // Call inside a tap. Unlocks speech, beeps and the shake gesture for the rest of the visit.
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    ensureAudio();
+    enableMotion();
+    if (synth) { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); } catch (e) {} }
+    spoken.clear(); // announce what is in view now that the voice works
+    refreshIntro();
+  }
+
   // ---------- Reading the scene ----------
-  function sizeOf(b) { return Math.max(b.h, Math.sqrt(b.w * b.h)); }
-  function levelOf(b) {
-    const s = sizeOf(b);
-    if (s >= VERY_CLOSE_AT || (b.y + b.h > 0.95 && b.h > 0.45)) return 2;
-    if (s >= CLOSE_AT) return 1;
-    return 0;
+  function infoFor(cls) {
+    if (CLASSES[cls]) return CLASSES[cls];
+    if (SMALL.has(cls)) return { say: cls, plural: cls + 's', kind: 'minor', h: 0.3 };
+    return { say: cls, plural: cls + 's', kind: 'static', h: 0.7 };
   }
   function zoneOf(cx) { return cx < 1 / 3 ? 'left' : cx > 2 / 3 ? 'right' : 'ahead'; }
+
+  // Distance from the object's typical height and the camera's field of view (pinhole camera).
+  function measure(b, info, W, H) {
+    const fpx = (Math.max(W, H) / 2) / Math.tan(CAMERA_FOV_DEG * Math.PI / 360);
+    let d = info.h * fpx / Math.max(1, b.h * H);
+    // A box cut off by the frame looks smaller than the object is, so cap the estimate by box size.
+    if (b.h >= VERY_CLOSE_AT) d = Math.min(d, 0.9);
+    else if (b.h >= CLOSE_AT && (b.y < 0.01 || b.y + b.h > 0.99)) d = Math.min(d, 1.8);
+    d = Math.max(0.3, d);
+    return { d, level: d < VERY_CLOSE_M ? 2 : d < CLOSE_M ? 1 : 0 };
+  }
+  function bucketOf(d) { return d < 0.6 ? 0 : d < 1.25 ? 1 : d < 1.75 ? 2 : d < 2.5 ? 3 : Math.min(9, Math.round(d) + 1); }
 
   function analyse(preds, W, H) {
     const items = new Map(), boxes = [];
     for (const p of preds) {
       const [x, y, w, h] = p.bbox;
       const b = { x: x / W, y: y / H, w: w / W, h: h / H };
-      const info = CLASSES[p.class] || { say: p.class, plural: p.class + 's', kind: 'minor' };
-      const cx = b.x + b.w / 2, zone = zoneOf(cx), level = levelOf(b), size = sizeOf(b);
+      const info = infoFor(p.class);
+      const cx = b.x + b.w / 2, zone = zoneOf(cx);
+      const m = measure(b, info, W, H);
       const key = p.class + '|' + zone;
       const cur = items.get(key);
       if (cur) {
         cur.count += 1;
-        if (size > cur.size) { cur.size = size; cur.cx = cx; }
-        if (level > cur.level) cur.level = level;
+        if (m.d < cur.d) { cur.d = m.d; cur.level = m.level; cur.cx = cx; cur.bucket = bucketOf(m.d); }
       } else {
-        items.set(key, { key, cls: p.class, info, zone, level, size, cx, count: 1 });
+        items.set(key, { key, cls: p.class, info, zone, cx, d: m.d, level: m.level, bucket: bucketOf(m.d), count: 1 });
       }
-      boxes.push({ b, say: info.say, level });
+      boxes.push({ b, say: info.say, level: m.level, d: m.d });
     }
     return { items, boxes };
   }
 
   function eligible(it) {
     if (settings.verbosity === 'all') return true;
-    if (it.info.kind === 'signal') return true;
-    if (it.info.kind === 'minor') return it.level === 2 && it.zone === 'ahead';
+    if (it.info.kind === 'minor') return false;
+    if (it.info.kind === 'signal') return it.d < 15;
     return it.level >= 1;
   }
   function priority(it) {
-    return it.level * 10 + (it.zone === 'ahead' ? 3 : 0) + (it.info.kind === 'moving' ? 2 : 0) + (it.info.kind === 'signal' ? 1 : 0);
+    return it.level * 10 + (it.zone === 'ahead' ? 3 : 0) + (it.info.kind === 'moving' ? 2 : 0) + (it.info.kind === 'signal' ? 1 : 0) - Math.min(it.d, 9) / 10;
   }
 
+  function distPhrase(d) {
+    if (d < 0.6) return 'within reach';
+    if (settings.units === 'steps') {
+      const n = Math.max(1, Math.round(d / STEP_M));
+      return n > 8 ? 'more than 8 steps' : 'about ' + n + (n === 1 ? ' step' : ' steps');
+    }
+    if (d < 1.25) return 'about 1 metre';
+    if (d < 1.75) return 'about 1 and a half metres';
+    if (d < 2.5) return 'about 2 metres';
+    if (d < 5.5) return 'about ' + Math.round(d) + ' metres';
+    return 'more than 5 metres';
+  }
   function dirPhrase(it) {
     if (settings.direction === 'clock') {
       const hour = [10, 11, 12, 1, 2][Math.min(4, Math.max(0, Math.floor(it.cx * 5)))];
@@ -416,24 +546,32 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     return it.zone === 'left' ? 'on your left' : it.zone === 'right' ? 'on your right' : 'ahead';
   }
   function nounPhrase(it) { return it.count > 1 ? it.count + ' ' + it.info.plural : it.info.say; }
-  function alertText(it) {
-    const parts = [nounPhrase(it)];
-    if (it.level > 0) parts.push(LEVEL_WORD[it.level]);
-    parts.push(dirPhrase(it));
-    let t = parts.join(', ');
-    t = t.charAt(0).toUpperCase() + t.slice(1) + '.';
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // Which side looks freer. The camera can't see walls, so this is a suggestion, not a promise.
+  function aroundAdvice(it, relevant) {
+    const blocked = (z) => relevant.some((o) => o !== it && o.zone === z && o.level >= 1);
+    const leftFree = !blocked('left'), rightFree = !blocked('right');
+    if (leftFree && rightFree) return it.cx < 0.5 ? 'Try going around on your right.' : 'Try going around on your left.';
+    if (leftFree) return 'Try going around on your left.';
+    if (rightFree) return 'Try going around on your right.';
+    return 'Both sides look blocked.';
+  }
+  function alertText(it, relevant) {
+    let t = cap(nounPhrase(it)) + ', ' + distPhrase(it.d) + ', ' + dirPhrase(it) + '.';
     if (it.level === 2) t = (it.zone === 'ahead' ? 'Stop. ' : 'Careful. ') + t;
+    if (it.zone === 'ahead' && it.level >= 1 && it.info.kind !== 'signal') t += ' ' + aroundAdvice(it, relevant);
     return t;
   }
   function summaryText(list) {
-    if (!list.length) return "Nothing I recognise right now. I can't see doors, walls or steps yet, so check with your cane.";
+    const shown = list.filter((i) => settings.verbosity === 'all' || i.info.kind !== 'minor');
+    if (!shown.length) return "Nothing I recognise right now. I can't see doors, walls or steps yet, so check with your cane.";
     const label = { left: 'On your left', ahead: 'Ahead', right: 'On your right' };
     const out = [];
-    for (const z of ['left', 'ahead', 'right']) {
-      const inZone = list.filter((i) => i.zone === z).sort((a, b) => b.level - a.level);
+    for (const z of ['ahead', 'left', 'right']) {
+      const inZone = shown.filter((i) => i.zone === z).sort((a, b) => a.d - b.d);
       if (!inZone.length) continue;
-      const bits = inZone.map((i) => nounPhrase(i) + (i.level === 2 ? ', very close' : i.level === 1 ? ', close' : ', further away'));
-      out.push(label[z] + ': ' + bits.join('; ') + '.');
+      out.push(label[z] + ': ' + inZone.map((i) => nounPhrase(i) + ', ' + distPhrase(i.d)).join('; ') + '.');
     }
     return out.join(' ');
   }
@@ -445,9 +583,9 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     recent.push(items);
     if (recent.length > 3) recent.shift();
 
-    // Stable = seen in this frame and in at least one of the two before it (filters one-frame flickers).
+    // Stable = very close (act at once), or seen in one of the two frames before (filters one-frame flickers).
     const stable = [];
-    for (const it of items.values()) if (prevFrames.some((m) => m.has(it.key))) stable.push(it);
+    for (const it of items.values()) if (it.level === 2 || prevFrames.some((m) => m.has(it.key))) stable.push(it);
     lastStable = stable;
     lastItems = items;
 
@@ -460,8 +598,26 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     const relevant = stable.filter(eligible);
     if (relevant.length) lastObstacleAt = now;
 
+    // The nearest obstacle in the walking path. If it vanishes while close, it has probably filled the
+    // camera view (too close to recognise), so keep treating it as there for a few seconds.
+    const aheadNow = relevant.filter((i) => i.zone === 'ahead' && i.level >= 1 && i.info.kind !== 'signal').sort((a, b) => a.d - b.d)[0];
+    let phantom = null;
+    if (aheadNow) memory = { it: aheadNow, at: now, warned: false };
+    else if (memory && now - memory.at < MEMORY_MS && memory.it.d < 1.8) phantom = memory.it;
+    else memory = null;
+    nearestAhead = aheadNow ? aheadNow.d : phantom ? Math.min(phantom.d, 0.6) : Infinity;
+    if (phantom) lastObstacleAt = now;
+
+    if (!canSpeak()) return; // voice not unlocked yet: keep drawing, say nothing
+
     const due = relevant
-      .filter((it) => { const r = spoken.get(it.key); return !r || it.level > r.level || now - r.t > REPEAT_MS[it.level]; })
+      .filter((it) => {
+        const r = spoken.get(it.key);
+        if (!r) return true;
+        if (it.level > r.level) return true;
+        if (it.bucket < r.bucket && now - r.t > CLOSER_REPEAT_MS) return true;
+        return now - r.t > REPEAT_MS[it.level];
+      })
       .sort((a, b) => priority(b) - priority(a));
     const top = due[0];
 
@@ -469,12 +625,18 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       const urgent = top.level === 2 && top.zone === 'ahead';
       const canInterrupt = urgent && now > urgentUntil;
       if (canInterrupt || !isBusy()) {
-        announce(alertText(top), { level: top.level, urgent: canInterrupt });
+        announce(alertText(top, relevant), { level: top.level, urgent: canInterrupt });
         buzz(top.level === 2 ? [250, 90, 250, 90, 250] : top.level === 1 ? [120] : 0);
-        spoken.set(top.key, { t: now, level: top.level, seen: now });
+        spoken.set(top.key, { t: now, level: top.level, bucket: top.bucket, seen: now });
         if (urgent) urgentUntil = now + URGENT_HOLD_MS;
         hadAlert = true; saidClear = false;
       }
+    } else if (phantom && !memory.warned && (now > urgentUntil || !isBusy())) {
+      announce('Careful. The ' + phantom.info.say + ' may be right in front of you.', { level: 2, urgent: true });
+      buzz([250, 90, 250]);
+      memory.warned = true;
+      urgentUntil = now + URGENT_HOLD_MS;
+      hadAlert = true; saidClear = false;
     } else if (settings.quietNotice && hadAlert && !saidClear && now - lastObstacleAt > CLEAR_AFTER_MS && !isBusy()) {
       announce('Nothing recognised ahead.', { level: 0 });
       saidClear = true;
@@ -513,7 +675,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       octx.setLineDash(bx.level ? [] : [5 * dpr, 5 * dpr]);
       octx.strokeRect(x, y, w, h);
       octx.setLineDash([]);
-      const label = bx.say + ' · ' + (bx.level === 2 ? 'very close' : bx.level === 1 ? 'close' : 'far');
+      const label = bx.say + ' · ' + bx.d.toFixed(1) + ' m';
       const tw = octx.measureText(label).width, lh = fs + pad * 2;
       const lx = Math.max(0, Math.min(x, W - tw - pad * 2)), ly = Math.max(0, y - lh);
       octx.fillStyle = col; octx.fillRect(lx, ly, tw + pad * 2, lh);
@@ -563,8 +725,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   function stage(text) {
     loadStage = text;
     tickLoad();
-    // While the guide is on, the intro is hidden, so show the stage in the caption (only when it changes).
-    if (running && !model) {
+    if (running && !model) { // the intro may be hidden, so show the stage in the caption (only when it changes)
       caption.dataset.level = 'info';
       captionTime.textContent = 'Getting ready';
       captionText.textContent = text;
@@ -588,7 +749,6 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       loadFailed(token, 'The vision library did not download. Check the internet connection, then reload the page.');
       return;
     }
-    // Try the phone's graphics chip first; if Safari's WebGL fails or hangs, fall back to the slower CPU.
     // Order: graphics chip (fastest), WebAssembly (fast, works when Safari's WebGL doesn't), plain CPU (slow, always works).
     let lastErr = null, firstFailure = '';
     const backends = ['webgl'];
@@ -623,7 +783,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
         setStatus(running ? 'live' : 'ready');
         modelNote.textContent = 'Vision model ready in ' + secs + ' s (' + modelLabel + ', ' + tf.getBackend() + ').'
           + (firstFailure ? ' Graphics mode failed: ' + firstFailure : '');
-        if (running) {
+        if (running && canSpeak()) {
           announce('Vision model ready. Scanning now.' + (backend === 'cpu' ? ' Running in slow mode, so alerts may lag.' : ''), { log: false });
         }
         return;
@@ -643,7 +803,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     modelError = message;
     setStatus('error');
     modelNote.textContent = message;
-    if (running) announce(message, { level: 1, urgent: true, log: false });
+    if (running && canSpeak()) announce(message, { level: 1, urgent: true, log: false });
   }
 
   function setStatus(state) {
@@ -653,20 +813,29 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   }
 
   // ---------- Start / stop ----------
-  async function startGuide() {
-    if (running || starting) return;
-    starting = true;
-    // Speak first, inside the tap, so iPhones allow speech for the rest of the session.
+  function introSpeech() {
+    if (!canSpeak()) return;
     announce(model
-      ? 'PathSense on. Hold the phone at chest height, camera facing forward.'
+      ? "PathSense on. Tap the screen to hear what's around you. Press and hold to pause."
       : modelError
         ? 'PathSense on. Trying to load the vision model again.'
         : "PathSense on. The vision model is still loading. I'll tell you when it's ready.", { log: false });
     if (!model && modelError) loadModel(settings.model);
+  }
 
+  // auto: started without a tap (page load, coming back to the app). Stays quiet until the voice is unlocked.
+  async function startGuide(opts) {
+    const auto = !!(opts && opts.auto);
+    if (running || starting) return;
+    starting = true;
+    userPaused = false;
+    if (!auto) introSpeech(); // speak inside the tap, so iPhones allow speech for the rest of the visit
+
+    const note = $('cameraNote');
     if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      fail('The camera needs a secure link. Open PathSense from an https address, or from localhost on a computer.');
       starting = false;
+      $('secureWarn').hidden = false;
+      if (!auto) fail('The camera needs a secure link. Open PathSense from an https address.');
       return;
     }
     try {
@@ -675,18 +844,22 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
       });
     } catch (err) {
-      const name = err && err.name;
-      fail(name === 'NotAllowedError' ? 'Camera access is blocked. Allow the camera for this site in your browser settings, then press Start guide again.'
-        : name === 'NotFoundError' ? 'No camera was found on this device.'
-        : 'The camera could not start. Close other apps that use the camera, then try again.');
       starting = false;
+      const name = err && err.name;
+      const msg = name === 'NotAllowedError' ? 'Camera access is blocked. Allow the camera for this site in your browser settings, then tap the screen.'
+        : name === 'NotFoundError' ? 'No camera was found on this device.'
+        : 'The camera could not start. Close other apps that use the camera, then tap the screen.';
+      note.textContent = auto ? 'Tap anywhere to turn on the camera.' : msg;
+      note.hidden = false;
+      if (!auto) fail(msg);
       return;
     }
+    note.hidden = true;
     video.srcObject = stream;
-    try { await video.play(); } catch (e) { /* autoplay is allowed: muted + started from a tap */ }
+    try { await video.play(); } catch (e) { /* muted + playsinline, so autoplay is allowed */ }
 
     running = true; starting = false;
-    recent.length = 0; spoken.clear();
+    recent.length = 0; spoken.clear(); memory = null; nearestAhead = Infinity;
     hadAlert = false; saidClear = true; urgentUntil = 0;
     lastObstacleAt = performance.now(); lastFrameAt = 0; emaGap = 0; emaMs = 0;
     lastStable = []; lastItems = new Map();
@@ -695,14 +868,16 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     loop();
   }
 
-  function stopGuide(message) {
+  function stopGuide(message, byUser) {
     if (!running) return;
     running = false;
+    if (byUser) userPaused = true;
     clearTimeout(loopTimer);
     if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
     video.srcObject = null;
     releaseWake();
     clearOverlay();
+    nearestAhead = Infinity; memory = null;
     setRunningUI(false);
     if (message) announce(message, { urgent: true, log: false });
   }
@@ -712,11 +887,22 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     announce(message, { level: 1, urgent: true, log: false });
   }
 
+  function refreshIntro() {
+    const live = running && audioUnlocked;
+    intro.hidden = live;
+    hintChip.hidden = !live;
+    view.setAttribute('aria-label', live
+      ? "Camera view. Tap to hear what's around you. Press and hold to pause."
+      : running ? 'Tap anywhere to turn on the voice' : 'Tap anywhere to start PathSense');
+    if (live) view.removeAttribute('aria-describedby'); else view.setAttribute('aria-describedby', 'introSteps');
+  }
+
   function setRunningUI(on) {
     startBtn.textContent = on ? 'Stop guide' : 'Start guide';
     startBtn.dataset.running = String(on);
-    intro.hidden = on;
     meter.hidden = !on;
+    $('introTitle').textContent = userPaused ? 'Paused. Tap anywhere to resume' : 'Tap anywhere to start';
+    refreshIntro();
     setStatus(model ? (on ? 'live' : 'ready') : modelError ? 'error' : 'loading');
     if (!model && !modelError) tickLoad();
   }
@@ -730,11 +916,42 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   }
 
   function describeAround() {
-    if (!running) { announce('Press Start guide first, then ask again.', { urgent: true, log: false }); return; }
+    if (!running) { startGuide(); return; }
     if (!model) { announce('The vision model is still loading.', { urgent: true, log: false }); return; }
     const list = lastStable.length ? lastStable : Array.from(lastItems.values());
     announce(summaryText(list), { urgent: true });
   }
+
+  // ---------- Gestures on the camera view: tap = describe, press and hold = pause or resume ----------
+  let holdTimer = 0, holdFired = false, downAt = null;
+  function onViewActivate() {
+    if (holdFired) { holdFired = false; return; }
+    const wasLocked = !audioUnlocked;
+    unlockAudio();
+    if (!running) { startGuide(); return; }
+    if (wasLocked) { introSpeech(); return; }
+    describeAround();
+  }
+  view.addEventListener('pointerdown', (e) => {
+    holdFired = false;
+    downAt = { x: e.clientX, y: e.clientY };
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      holdFired = true;
+      unlockAudio();
+      buzz([80]);
+      if (running) stopGuide('Guide paused. Tap the screen to resume.', true);
+      else startGuide();
+    }, HOLD_MS);
+  });
+  const cancelHold = () => clearTimeout(holdTimer);
+  view.addEventListener('pointerup', cancelHold);
+  view.addEventListener('pointercancel', cancelHold);
+  view.addEventListener('pointerleave', cancelHold);
+  view.addEventListener('pointermove', (e) => { if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 24) cancelHold(); });
+  view.addEventListener('click', onViewActivate);
+  view.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewActivate(); } });
+  view.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // ---------- Session log (for user testing) ----------
   function logEntry(text, level) {
@@ -755,10 +972,13 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     const el = form.elements;
     el.rate.value = settings.rate;
     el.minScore.value = settings.minScore;
-    el.verbosity.value = settings.verbosity;
+    el.units.value = settings.units;
     el.direction.value = settings.direction;
+    el.verbosity.value = settings.verbosity;
     el.output.value = settings.output;
     el.model.value = settings.model;
+    el.beeps.checked = settings.beeps;
+    el.shake.checked = settings.shake;
     el.vibrate.checked = settings.vibrate;
     el.quietNotice.checked = settings.quietNotice;
     renderOutputs();
@@ -771,9 +991,12 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     const el = form.elements;
     settings.rate = parseFloat(el.rate.value);
     settings.minScore = parseFloat(el.minScore.value);
-    settings.verbosity = el.verbosity.value;
+    settings.units = el.units.value;
     settings.direction = el.direction.value;
+    settings.verbosity = el.verbosity.value;
     settings.output = el.output.value;
+    settings.beeps = el.beeps.checked;
+    settings.shake = el.shake.checked;
     settings.vibrate = el.vibrate.checked;
     settings.quietNotice = el.quietNotice.checked;
     const nextModel = el.model.value;
@@ -784,13 +1007,16 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   }
 
   // ---------- Wire up ----------
-  startBtn.addEventListener('click', () => { if (running) stopGuide('Guide paused.'); else startGuide(); });
-  aroundBtn.addEventListener('click', describeAround);
-  settingsBtn.addEventListener('click', () => { fillForm(); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); });
+  startBtn.addEventListener('click', () => { unlockAudio(); if (running) stopGuide('Guide paused.', true); else startGuide(); });
+  aroundBtn.addEventListener('click', () => { unlockAudio(); describeAround(); });
+  settingsBtn.addEventListener('click', () => { unlockAudio(); fillForm(); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); });
   form.addEventListener('input', readForm);
   form.addEventListener('change', readForm);
   $('testVoice').addEventListener('click', () => {
-    announce('This is how PathSense sounds. Person, close, ' + (settings.direction === 'clock' ? "at 11 o'clock." : 'on your left.'), { urgent: true, log: false });
+    unlockAudio();
+    const dir = settings.direction === 'clock' ? "at 12 o'clock" : 'ahead';
+    const dist = settings.units === 'steps' ? 'about 2 steps' : 'about 1 metre';
+    announce('Stop. Chair, ' + dist + ', ' + dir + '. Try going around on your left.', { urgent: true, log: false });
   });
   $('copyLog').addEventListener('click', () => {
     const csv = logCSV(), area = $('logArea'), status = $('logStatus');
@@ -809,21 +1035,26 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     $('logArea').hidden = true; $('logStatus').textContent = 'Log cleared.';
   });
 
+  // Leaving the app pauses the camera; coming back resumes it on its own (unless the user paused it).
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && running) {
-      stopGuide(null);
-      showCaption('Paused because PathSense left the screen. Press Start guide to continue.', 0);
+    if (document.hidden) {
+      if (running) { stopGuide(null, false); resumeOnReturn = true; }
+    } else if (resumeOnReturn && !userPaused) {
+      resumeOnReturn = false;
+      startGuide({ auto: true }).then(() => { if (running && canSpeak()) announce('PathSense resumed.', { log: false }); });
     }
   });
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(sizeOverlay).observe(view);
   window.addEventListener('resize', sizeOverlay);
 
-  // ---------- Init ----------
+  // ---------- Init: load the model and turn the camera on without waiting for a tap ----------
   fillForm();
   applyOutput();
   sizeOverlay();
   if (!window.isSecureContext) $('secureWarn').hidden = false;
   loadModel(settings.model);
+  startGuide({ auto: true });
+  beepLoop();
 })();
 </script>
 </body>

@@ -46,6 +46,7 @@ body{background:var(--ink);color:var(--paper);font-family:var(--font-ui);font-si
 /* Status strip */
 .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:10px;padding-left:var(--gutter-l);padding-right:var(--gutter-r)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.2rem;letter-spacing:.01em}
+.ver{font-family:var(--font-data);font-size:.72rem;font-weight:500;color:var(--muted);letter-spacing:.04em}
 .mark{width:24px;height:24px;border-radius:5px;background:radial-gradient(circle,var(--ink) 1.7px,transparent 2.2px) 1px 1px/7.33px 7.33px,var(--signal)}
 .status{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-data);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;padding:6px 12px;border:1.5px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
 .status::before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}
@@ -125,7 +126,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 <body>
 <main class="app">
   <header class="bar">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span></div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v1.1</span></div>
     <div class="status" id="status" data-state="loading">Loading</div>
   </header>
 
@@ -553,35 +554,86 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   }
 
   // ---------- Model ----------
+  // Loading shows its stage and elapsed seconds, so a slow first run never looks frozen.
+  let loadStage = '', loadStartedAt = 0, loadTicker = 0, modelError = '';
+  function withTimeout(promise, ms, what) {
+    return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(what + ' took longer than ' + Math.round(ms / 1000) + ' s')), ms))]);
+  }
+  function stage(text) {
+    loadStage = text;
+    tickLoad();
+    // While the guide is on, the intro is hidden, so show the stage in the caption (only when it changes).
+    if (running && !model) {
+      caption.dataset.level = 'info';
+      captionTime.textContent = 'Getting ready';
+      captionText.textContent = text;
+    }
+  }
+  function tickLoad() {
+    const secs = Math.round((performance.now() - loadStartedAt) / 1000);
+    modelNote.textContent = loadStage + (secs >= 2 ? ' ' + secs + ' s' : '');
+    if (statusEl.dataset.state === 'loading') statusEl.textContent = secs >= 2 ? 'Loading ' + secs + 's' : 'Loading';
+  }
+
   async function loadModel(base) {
     const token = ++loadToken;
+    modelError = '';
+    loadStartedAt = performance.now();
+    clearInterval(loadTicker);
+    loadTicker = setInterval(tickLoad, 1000);
     setStatus('loading');
-    modelNote.textContent = 'Loading the vision model…';
+    stage('Downloading the vision model…');
     if (typeof tf === 'undefined' || typeof cocoSsd === 'undefined') {
-      setStatus('error');
-      modelNote.textContent = 'The vision library did not load. Check the internet connection and reload the page.';
+      loadFailed(token, 'The vision library did not download. Check the internet connection, then reload the page.');
       return;
     }
-    try {
-      await tf.ready();
-      const m = await cocoSsd.load({ base });
-      const warm = document.createElement('canvas');
-      warm.width = warm.height = 96;
-      warm.getContext('2d').fillRect(0, 0, 96, 96);
-      await m.detect(warm); // first run compiles GPU shaders; do it before the user starts walking
-      if (token !== loadToken) { try { m.dispose(); } catch (e) {} return; }
-      const old = model;
-      model = m;
-      modelLabel = MODEL_LABEL[base];
-      if (old) { try { old.dispose(); } catch (e) {} }
-      setStatus(running ? 'live' : 'ready');
-      modelNote.textContent = 'Vision model ready (' + modelLabel + ', ' + tf.getBackend() + ').';
-    } catch (err) {
-      console.error(err);
-      if (token !== loadToken) return;
-      setStatus('error');
-      modelNote.textContent = 'The vision model could not load. Check the internet connection and reload the page.';
+    // Try the phone's graphics chip first; if Safari's WebGL fails or hangs, fall back to the slower CPU.
+    let lastErr = null;
+    for (const backend of ['webgl', 'cpu']) {
+      try {
+        if (tf.getBackend() !== backend) {
+          const ok = await tf.setBackend(backend);
+          if (!ok) throw new Error(backend + ' is not available on this device');
+        }
+        await tf.ready();
+        if (backend === 'cpu') stage('Graphics mode failed. Retrying in slow mode…');
+        const m = await withTimeout(cocoSsd.load({ base }), 120000, 'Downloading the model');
+        if (token !== loadToken) { try { m.dispose(); } catch (e) {} return; }
+        stage('Preparing the model on this phone. The first time can take up to 30 seconds…');
+        const warm = document.createElement('canvas');
+        warm.width = warm.height = 96;
+        warm.getContext('2d').fillRect(0, 0, 96, 96);
+        await withTimeout(m.detect(warm), 45000, 'Preparing the model');
+        if (token !== loadToken) { try { m.dispose(); } catch (e) {} return; }
+
+        const old = model;
+        model = m;
+        modelLabel = MODEL_LABEL[base] + (backend === 'cpu' ? ', slow mode' : '');
+        if (old) { try { old.dispose(); } catch (e) {} }
+        clearInterval(loadTicker);
+        const secs = Math.round((performance.now() - loadStartedAt) / 1000);
+        setStatus(running ? 'live' : 'ready');
+        modelNote.textContent = 'Vision model ready in ' + secs + ' s (' + modelLabel + ', ' + tf.getBackend() + ').';
+        if (running) {
+          announce('Vision model ready. Scanning now.' + (backend === 'cpu' ? ' Running in slow mode, so alerts may lag.' : ''), { log: false });
+        }
+        return;
+      } catch (err) {
+        console.error('Model load failed on ' + backend, err);
+        lastErr = err;
+        if (token !== loadToken) return;
+      }
     }
+    loadFailed(token, 'The vision model could not load. ' + (lastErr && lastErr.message ? 'Reason: ' + lastErr.message + '. ' : '') + 'Reload the page to try again.');
+  }
+
+  function loadFailed(token, message) {
+    if (token !== loadToken) return;
+    clearInterval(loadTicker);
+    modelError = message;
+    setStatus('error');
+    modelNote.textContent = message;
+    if (running) announce(message, { level: 1, urgent: true, log: false });
   }
 
   function setStatus(state) {
@@ -597,7 +649,10 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     // Speak first, inside the tap, so iPhones allow speech for the rest of the session.
     announce(model
       ? 'PathSense on. Hold the phone at chest height, camera facing forward.'
-      : 'PathSense on. The vision model is still loading. Please wait.', { log: false });
+      : modelError
+        ? 'PathSense on. Trying to load the vision model again.'
+        : "PathSense on. The vision model is still loading. I'll tell you when it's ready.", { log: false });
+    if (!model && modelError) loadModel(settings.model);
 
     if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       fail('The camera needs a secure link. Open PathSense from an https address, or from localhost on a computer.');
@@ -652,7 +707,8 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     startBtn.dataset.running = String(on);
     intro.hidden = on;
     meter.hidden = !on;
-    setStatus(model ? (on ? 'live' : 'ready') : 'loading');
+    setStatus(model ? (on ? 'live' : 'ready') : modelError ? 'error' : 'loading');
+    if (!model && !modelError) tickLoad();
   }
 
   async function keepAwake() {

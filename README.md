@@ -32,7 +32,9 @@ With VoiceOver or TalkBack on, the camera view is one big button: double-tap it 
 - Estimates distance from each object's typical size, in metres or steps.
 - Says where each one is: left, ahead or right, or clock positions (10 to 2 o'clock).
 - Suggests which side to go around, based on what it can see on each side.
-- Keeps warning while something stays close: very close obstacles are repeated every 3 seconds, and again whenever they get closer.
+- Talks one message at a time with a short pause between messages. Only things in your path are announced; things to the side only when they're about to touch you.
+- "Stop" warnings for something very close in your path cut in instantly, even mid-sentence.
+- Keeps warning while something stays close: a very close obstacle is repeated every 6 seconds, and the beeps speed up in between.
 - Remembers an obstacle that disappears from view while close (usually because it fills the whole camera) and warns "may be right in front of you".
 - Beeps faster as you get closer to the nearest thing ahead, like a car parking sensor.
 - Never says the path is clear, because it cannot yet see doors, walls, poles or steps (Step 2 adds these).
@@ -49,7 +51,8 @@ Constants at the top of the script in `index.html`:
 | `CAMERA_FOV_DEG` | `70` | Camera field of view along the long side. Raise it if distances read too far, lower it if too near |
 | `VERY_CLOSE_M` | `1.2` | Nearer than this: "Stop." ahead, "Careful." on the sides |
 | `CLOSE_M` | `2.6` | Nearer than this: announced as an obstacle |
-| `REPEAT_MS` | `[15000, 6000, 3000]` | Repeat the same object on the same side after (far, close, very close) |
+| `REPEAT_MS` | `[20000, 12000, 6000]` | Repeat the same object on the same side after (far, close, very close) |
+| `QUIET_GAP_MS` | `2500` | Silence after each message before the next one. "Stop" warnings skip it and cut in at once |
 | `MEMORY_MS` | `3000` | How long to keep warning about an obstacle that vanished while close |
 | `LOOP_GAP_MS` | `40` | Pause between detections; raise it if the phone gets hot |
 

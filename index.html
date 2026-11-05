@@ -129,7 +129,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 <body>
 <main class="app">
   <header class="bar">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v2.0</span></div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>PathSense</span><span class="ver" aria-hidden="true">v2.1</span></div>
     <div class="status" id="status" data-state="loading">Loading</div>
   </header>
 
@@ -256,12 +256,12 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   const CLOSE_M = 2.6;                   // nearer than this: announced as an obstacle
   const VERY_CLOSE_AT = 0.62;            // box height (share of frame) that is very close even if the box is cut off
   const CLOSE_AT = 0.36;                 // box height that is close even if the box is cut off
-  const REPEAT_MS = [15000, 6000, 3000]; // repeat the same object on the same side after: far, close, very close
-  const CLOSER_REPEAT_MS = 1500;         // repeat sooner when the object got closer
+  const REPEAT_MS = [20000, 12000, 6000]; // repeat the same object on the same side after: far, close, very close
+  const QUIET_GAP_MS = 2500;             // silence after each message before the next one, so alerts never run together
   const FORGET_MS = 2500;                // unseen this long, an object is announced again when it comes back
   const MEMORY_MS = 3000;                // keep warning about something in front that vanished (often: too close for the camera)
   const CLEAR_AFTER_MS = 4000;           // quiet time before "Nothing recognised" (never claim the path is clear)
-  const URGENT_HOLD_MS = 1800;           // an urgent alert is not cut off by another one for this long
+  const URGENT_HOLD_MS = 1200;           // a "Stop" is not cut off by another "Stop" for this long
   const HOLD_MS = 900;                   // press and hold this long to pause or resume
   const STEP_M = 0.7;                    // one walking step, for "about 3 steps"
 
@@ -367,14 +367,18 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
 
   function canSpeak() { return audioUnlocked || settings.output === 'reader'; }
 
+  // Busy while speaking, and for a quiet gap after each message.
+  let speechEndedAt = 0, speakingSeenAt = 0;
   function isBusy() {
     const now = performance.now();
-    if (settings.output === 'reader' || !synth) return now - lastAnnouncedAt < 2500;
+    if (settings.output === 'reader' || !synth || !audioUnlocked) return now - lastAnnouncedAt < 4000; // reading time unknown
     if (synth.speaking || synth.pending) {
-      if (now - speakStartedAt > 9000) { synth.cancel(); return false; } // recover from a stuck speech engine
+      if (now - speakStartedAt > 9000) { synth.cancel(); speechEndedAt = now; return false; } // recover from a stuck speech engine
+      speakingSeenAt = now;
       return true;
     }
-    return false;
+    if (speechEndedAt < speakStartedAt) speechEndedAt = Math.max(speakingSeenAt, speakStartedAt); // the end event never arrived
+    return now - speechEndedAt < QUIET_GAP_MS;
   }
 
   function announce(text, opts) {
@@ -388,6 +392,7 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     const u = new SpeechSynthesisUtterance(text);
     u.rate = settings.rate;
     if (voice) { u.voice = voice; u.lang = voice.lang; } else { u.lang = navigator.language || 'en-US'; }
+    u.onend = u.onerror = () => { speechEndedAt = performance.now(); };
     speakStartedAt = now;
     synth.speak(u);
   }
@@ -520,7 +525,8 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
     if (settings.verbosity === 'all') return true;
     if (it.info.kind === 'minor') return false;
     if (it.info.kind === 'signal') return it.d < 15;
-    return it.level >= 1;
+    // In your walking path: when close. To the side: only when it's about to touch you.
+    return it.zone === 'ahead' ? it.level >= 1 : it.level === 2;
   }
   function priority(it) {
     return it.level * 10 + (it.zone === 'ahead' ? 3 : 0) + (it.info.kind === 'moving' ? 2 : 0) + (it.info.kind === 'signal' ? 1 : 0) - Math.min(it.d, 9) / 10;
@@ -549,18 +555,19 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   // Which side looks freer. The camera can't see walls, so this is a suggestion, not a promise.
-  function aroundAdvice(it, relevant) {
-    const blocked = (z) => relevant.some((o) => o !== it && o.zone === z && o.level >= 1);
+  function aroundAdvice(it, nearby) {
+    const blocked = (z) => nearby.some((o) => o !== it && o.zone === z && o.level >= 1 && o.info.kind !== 'minor' && o.info.kind !== 'signal');
     const leftFree = !blocked('left'), rightFree = !blocked('right');
     if (leftFree && rightFree) return it.cx < 0.5 ? 'Try going around on your right.' : 'Try going around on your left.';
     if (leftFree) return 'Try going around on your left.';
     if (rightFree) return 'Try going around on your right.';
     return 'Both sides look blocked.';
   }
-  function alertText(it, relevant) {
+  // One short sentence. Go-around advice only comes with "Stop", when it's actually needed.
+  function alertText(it, nearby) {
     let t = cap(nounPhrase(it)) + ', ' + distPhrase(it.d) + ', ' + dirPhrase(it) + '.';
     if (it.level === 2) t = (it.zone === 'ahead' ? 'Stop. ' : 'Careful. ') + t;
-    if (it.zone === 'ahead' && it.level >= 1 && it.info.kind !== 'signal') t += ' ' + aroundAdvice(it, relevant);
+    if (it.zone === 'ahead' && it.level === 2 && it.info.kind !== 'signal') t += ' ' + aroundAdvice(it, nearby);
     return t;
   }
   function summaryText(list) {
@@ -614,24 +621,27 @@ textarea{width:100%;min-height:8rem;font-family:var(--font-data);font-size:.78re
       .filter((it) => {
         const r = spoken.get(it.key);
         if (!r) return true;
-        if (it.level > r.level) return true;
-        if (it.bucket < r.bucket && now - r.t > CLOSER_REPEAT_MS) return true;
-        return now - r.t > REPEAT_MS[it.level];
+        if (it.level > r.level) return true; // e.g. close -> very close
+        return now - r.t > REPEAT_MS[it.level]; // otherwise the beeps say it's getting closer
       })
       .sort((a, b) => priority(b) - priority(a));
     const top = due[0];
 
     if (top) {
+      // Very high alert (very close, in your path): cut in at once, even mid-sentence, with no quiet gap.
+      // Everything else waits its turn. Two "Stop"s don't cut each other off within URGENT_HOLD_MS.
       const urgent = top.level === 2 && top.zone === 'ahead';
       const canInterrupt = urgent && now > urgentUntil;
       if (canInterrupt || !isBusy()) {
-        announce(alertText(top, relevant), { level: top.level, urgent: canInterrupt });
+        announce(alertText(top, stable), { level: top.level, urgent: canInterrupt });
         buzz(top.level === 2 ? [250, 90, 250, 90, 250] : top.level === 1 ? [120] : 0);
         spoken.set(top.key, { t: now, level: top.level, bucket: top.bucket, seen: now });
         if (urgent) urgentUntil = now + URGENT_HOLD_MS;
         hadAlert = true; saidClear = false;
       }
-    } else if (phantom && !memory.warned && (now > urgentUntil || !isBusy())) {
+    } else if (phantom && !memory.warned && (spoken.get(phantom.key) || {}).t > now - 3000) {
+      memory.warned = true; // a "Stop" about this same object is still fresh; the fast beeps carry on instead
+    } else if (phantom && !memory.warned && now > urgentUntil) { // very high alert: no waiting
       announce('Careful. The ' + phantom.info.say + ' may be right in front of you.', { level: 2, urgent: true });
       buzz([250, 90, 250]);
       memory.warned = true;
